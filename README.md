@@ -1,3 +1,6 @@
+# Work In Progress Notice
+This is an early work-in-progress, please contact Dome9 support before using it.
+
 # CFT based CI/CD pipeline with Dome9
 These scripts demonstrate how use the SyncNow and EntityFetchStatus APIs to integrate Dome9 Compliance Engine assessments after a new test CFT stack was deployed as part of a CI/CD pipline. 
 
