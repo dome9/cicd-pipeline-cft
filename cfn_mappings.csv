@@ -1,4 +1,4 @@
-CFN,Dome9
+CFN,Dome9,"Linked Assets"
 AWS::AmazonMQ::Broker,
 AWS::AmazonMQ::Configuration,
 AWS::ApiGateway::Account,
@@ -87,7 +87,7 @@ AWS::DMS::ReplicationInstance,
 AWS::DMS::ReplicationSubnetGroup,
 AWS::DMS::ReplicationTask,
 AWS::DynamoDB::Table,DynamoDbTable
-AWS::EC2::CustomerGateway,CustomerGateway
+AWS::EC2::CustomerGateway,CustomerGateway,"VPNConnection,AwsVpnGateway"
 AWS::EC2::DHCPOptions,
 AWS::EC2::EgressOnlyInternetGateway,
 AWS::EC2::EIP,ElasticIP
