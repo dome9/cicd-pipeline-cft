@@ -16,7 +16,7 @@ def d9_sync_and_wait(d9keyId, d9secret, awsAccNumber, region, stackName, exclude
     # Take start time
     t0 = datetime.datetime.utcnow()
     print ("\n\n{}\nStarting...\n{}\n\nSetting now (UTC {}) as base time".format(80*'*', 80*'*' ,t0))
-    (d9_supported_cfn_types,d9_non_supported_cfn,relevant_dome9_types) = calc_relevant_stack_types(awsAccNumber, region, stackName, excludedTypes, awsprofile)
+    (d9_supported_cfn_types,d9_non_supported_cfn,relevant_dome9_types) = get_relevant_stack_types(awsAccNumber, region, stackName, excludedTypes, awsprofile)
     
     # Perform SyncNow
     perfrom_sync_now(awsAccNumber,d9keyId,d9secret)
@@ -45,8 +45,8 @@ def d9_sync_and_wait(d9keyId, d9secret, awsAccNumber, region, stackName, exclude
 def analyze_entities_update_status(requested_dome9_types, status, t0):
     retObj = StatusResult()
     for d9type in requested_dome9_types:
-        filteredList = [elem for elem in status if elem['entityType']==d9type ]
-        ser_status = next(iter(filteredList), None)
+        filteredList = [elem for elem in status if elem['entityType']==d9type ] # There should be either 1 or 0 items here (as we already filtered the regions)
+        ser_status = next(iter(filteredList), None) # get first item or nothing
         if(not ser_status):
             retObj.pending.append(d9type)
         else:
@@ -84,8 +84,36 @@ def query_fetch_status(awsAccNumber,region,relevant_dome9_types ,d9keyId, d9secr
                 resp))
     return relevant
 
-def calc_relevant_stack_types(awsAccNumber, region, stackName, excludedTypes, awsprofile):
+def get_relevant_stack_types(awsAccNumber, region, stackName, excludedTypes, awsprofile):
+    # query AWS for 
+    relevant_cfn_types = get_stack_types_from_aws (awsAccNumber, region, stackName, awsprofile)
+    print_list(relevant_cfn_types,'CFN types found in this stack')
+
+    # get dome9 types from mapping file
     MAPPINGS_PATH = "./cfn_mappings.csv"
+    cfn_mappings = dict()
+    with open(MAPPINGS_PATH, "rb") as f:
+        reader = csv.DictReader(f)
+        for item in reader:
+            if item['Dome9']:
+                cfn_mappings[item['CFN']] = item['Dome9'].split(',')
+    
+    d9_supported_cfn_types = [cfn for cfn in relevant_cfn_types if cfn in cfn_mappings]
+    print_list(d9_supported_cfn_types,"Relevant CFN types SUPPORTED by Dome9")
+    
+    d9_non_supported_cfn = [cfn for cfn in relevant_cfn_types if not cfn in cfn_mappings]
+    print_list(d9_non_supported_cfn,"Relevant CFN types NOT supported by Dome9")
+
+    relevant_dome9_types = set(flatten([ cfn_mappings[cfn] if cfn in cfn_mappings else list([]) for cfn in relevant_cfn_types]))
+    #print_list(relevant_dome9_types,'relevant Dome9 Data fetcher types')
+
+    actual_d9_types = [t for t in relevant_dome9_types if not t in excludedTypes]
+    print_list(actual_d9_types, "Actual Dome9 types to wait for")
+    print_list(excludedTypes,"Excluded Dome9 types (will not wait for their fetch status)")
+
+    return (d9_supported_cfn_types,d9_non_supported_cfn,actual_d9_types)
+
+def get_stack_types_from_aws (awsAccNumber, region, stackName, awsprofile):
     # allow to specify specific profile, fallback to standard boto credentials lookup strategy https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html
     aws_session = boto3.session.Session(profile_name=awsprofile, region_name=region) if awsprofile else boto3.session.Session(region_name=region) 
     
@@ -102,30 +130,7 @@ def calc_relevant_stack_types(awsAccNumber, region, stackName, excludedTypes, aw
         # NextToken='string' # TODO handle pagination
     )
     relevant_cfn_types = list(set([i['ResourceType'] for i in response['StackResourceSummaries']])) # set will make it unique
-    print_list(relevant_cfn_types,'CFN types found in this stack')
-
-    # get dome9 types from mapping file
-    cfn_mappings = dict()
-    with open(MAPPINGS_PATH, "rb") as f:
-        reader = csv.DictReader(f)
-        for item in reader:
-            if item['Dome9']:
-                cfn_mappings[item['CFN']] = item['Dome9'].split(',')
-    
-    d9_supported_cfn_types = [cfn for cfn in relevant_cfn_types if cfn in cfn_mappings]
-    print_list(d9_supported_cfn_types,"relevant CFN types SUPPORTED by Dome9")
-    
-    d9_non_supported_cfn = [cfn for cfn in relevant_cfn_types if not cfn in cfn_mappings]
-    print_list(d9_non_supported_cfn,"relevant CFN types NOT supported by Dome9")
-
-    relevant_dome9_types = set(flatten([ cfn_mappings[cfn] if cfn in cfn_mappings else list([]) for cfn in relevant_cfn_types]))
-    #print_list(relevant_dome9_types,'relevant Dome9 Data fetcher types')
-
-    actual_d9_types = [t for t in relevant_dome9_types if not t in excludedTypes]
-    print_list(actual_d9_types, "Actual Dome9 types to wait for")
-    print_list(excludedTypes,"Excluded types (will not wait for them)")
-
-    return (d9_supported_cfn_types,d9_non_supported_cfn,actual_d9_types)
+    return relevant_cfn_types
 
 # Utility methods
 
@@ -163,7 +168,7 @@ if __name__ == "__main__":
     parser.add_argument('--excludedTypes', required=False, type=str)
     parser.add_argument('--maxTimeoutMinutes', required=False, type=int, default=10)
     args = parser.parse_args()
-    excludedTypes = args.excludedTypes.split(',') if args.excludedTypes else []  #  ['LogGroups'] # these are types which are not yet supported by sync now and are not critical for our GSL rules. (in this case LogGroups is not even a GSL entity)
+    excludedTypes = args.excludedTypes.split(',') if args.excludedTypes else []  # these are types which are not yet supported by sync now and are not critical for our GSL rules. (ex: LogGroups is not even a GSL entity)
     t1 = datetime.datetime.utcnow()
 
     st = d9_sync_and_wait(awsAccNumber=args.awsAccountNumber, region = args.region, stackName=args.stackName, 
@@ -178,8 +183,6 @@ if __name__ == "__main__":
     else:
         print('not all types were updated. Please consider to increase the script timeout or to exclude these types from being wait upon: {}'.format(",".join(st.pending)))
         exit(1)
-
-
 
 # TODO 1 allow 2nd run without triggering a sync now and with accepting the previous time as base time.
 # TODO 2 support CFT list-stack-resources pagination
