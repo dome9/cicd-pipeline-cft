@@ -48,7 +48,7 @@ def analyze_entities_update_status(requested_dome9_types, status, t0):
         filteredList = [elem for elem in status if elem['entityType']==d9type ] # There should be either 1 or 0 items here (as we already filtered the regions)
         ser_status = next(iter(filteredList), None) # get first item or nothing
         if(not ser_status):
-            retObj.pending.append(d9type)
+            retObj.pending.append(d9type) # if for some reason the desired type is not in our DB - treat it as pending. Hopefully it'll be added soon. If not - there might be a bug in our mapping file, meaning no such Dome9 type exists.
         else:
             tEntity = dateutil.parser.parse(ser_status['lastSuccessfulRun']).replace(tzinfo=None) # sadly datetime.datetime.utcnow() is not timzeone aware so I'm removing the TZ so we can compare them
             if tEntity>t0:
