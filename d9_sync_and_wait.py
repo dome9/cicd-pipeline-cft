@@ -25,6 +25,7 @@ def d9_sync_and_wait(d9keyId, d9secret, awsAccNumber, region, stackName, exclude
     perfrom_sync_now(awsAccNumber, d9keyId, d9secret)
     # time.sleep(5) # (optional) wait a few seconds to let the system opportunity to fetch entities
 
+    # Params for holding state in case of exception we want them to be dump to the stdout
     num_of_completed = 0
     api_status = {}
 
