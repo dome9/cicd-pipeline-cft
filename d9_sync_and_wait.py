@@ -10,6 +10,9 @@ import time
 import dateutil.parser
 import argparse
 
+# Dome9 assessment service
+from  d9_run_assesment_service import AssessmentExecutor
+
 
 def d9_sync_and_wait(d9keyId, d9secret, awsAccNumber, region, stackName, excludedTypes, maxTimeoutMinutes=10,
                      awsprofile=''):
@@ -96,9 +99,11 @@ def analyze_entities_update_status(relevant_dome9_types, api_status, t0):
 
 
 def perfrom_sync_now(awsAccNumber, d9keyId, d9secret):
+    global d9Id
     # replace awsaccount number with Dome9 cloud account Id
     print('\nresolving Dome9 account id from aws account number: {}'.format(awsAccNumber))
     r = requests.get('https://api.dome9.com/v2/cloudaccounts/{}'.format(awsAccNumber), auth=(d9keyId, d9secret))
+
     d9Id = r.json()['id']
     print('Found it. Dome9 cloud account Id={}'.format(d9Id))
 
@@ -125,7 +130,8 @@ def query_fetch_status(awsAccNumber, region, relevant_dome9_types, d9keyId, d9se
 
 
 def get_relevant_stack_types(awsAccNumber, region, stackName, excludedTypes, awsprofile):
-    # query AWS for 
+    # query AWS for
+    global relevant_resource_ids
     relevant_cfn_types = get_stack_types_from_aws(awsAccNumber, region, stackName, awsprofile)
     print_list(relevant_cfn_types, 'CFN types found in this stack')
 
@@ -148,6 +154,8 @@ def get_relevant_stack_types(awsAccNumber, region, stackName, excludedTypes, aws
         flatten([cfn_mappings[cfn] if cfn in cfn_mappings else list([]) for cfn in relevant_cfn_types]))
     # print_list(relevant_dome9_types,'relevant Dome9 Data fetcher types')
 
+    relevant_resource_ids = {resource_type: list_of_ids for resource_type, list_of_ids in relevant_resource_ids.iteritems() if resource_type in d9_supported_cfn_types}
+
     actual_d9_types = [t for t in relevant_dome9_types if not t in excludedTypes]
     print_list(actual_d9_types, "Actual Dome9 types to wait for")
     print_list(excludedTypes, "Excluded Dome9 types (will not wait for their fetch status)")
@@ -156,6 +164,7 @@ def get_relevant_stack_types(awsAccNumber, region, stackName, excludedTypes, aws
 
 
 def get_stack_types_from_aws(awsAccNumber, region, stackName, awsprofile):
+    global relevant_resource_ids
     # allow to specify specific profile, fallback to standard boto credentials lookup strategy https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html
     aws_session = boto3.session.Session(profile_name=awsprofile,
                                         region_name=region) if awsprofile else boto3.session.Session(region_name=region)
@@ -174,8 +183,18 @@ def get_stack_types_from_aws(awsAccNumber, region, stackName, awsprofile):
         StackName=stackName,
         # NextToken='string' # TODO handle pagination
     )
-    relevant_cfn_types = list(
-        set([i['ResourceType'] for i in response['StackResourceSummaries']]))  # set will make it unique
+
+    types_sets = set()  # set will make it unique
+    for resource in response['StackResourceSummaries']:
+        resource_type = resource['ResourceType']
+        types_sets.add(resource_type)
+        if resource_type not in relevant_resource_ids:
+            relevant_resource_ids[resource_type] = list()
+        relevant_resource_ids[resource_type].append(resource['PhysicalResourceId'])
+
+
+
+    relevant_cfn_types = list(types_sets)
     return relevant_cfn_types
 
 
@@ -223,6 +242,8 @@ if __name__ == "__main__":
         ',') if args.excludedTypes else []  # these are types which are not yet supported by sync now and are not critical for our GSL rules. (ex: LogGroups is not even a GSL entity)
     t1 = datetime.datetime.utcnow()
 
+    d9Id = None
+    relevant_resource_ids = dict()
     st = d9_sync_and_wait(awsAccNumber=args.awsAccountNumber, region=args.region, stackName=args.stackName,
                           excludedTypes=excludedTypes, maxTimeoutMinutes=args.maxTimeoutMinutes,
                           awsprofile=args.awsCliProfile, d9keyId=args.d9keyId, d9secret=args.d9secret)
@@ -231,6 +252,11 @@ if __name__ == "__main__":
     print('Script ran for {} seconds'.format((t2 - t1).total_seconds()))
     if (st.isAllCompleted()):
         print("\n*** All supported services were successfully updated (fetched) ***\n")
+
+        print('Going to execute assessment')
+        assessment_execution_service = AssessmentExecutor(args.awsAccountNumber, d9Id, args.d9secret, args.d9keyId, args.region, relevant_resource_ids)
+        assessment_execution_service.run_assessment(-5)
+
         exit(0)
     else:
         print(
