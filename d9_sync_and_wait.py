@@ -252,4 +252,4 @@ if __name__ == "__main__":
         exit(1)
 
 # TODO 1 allow 2nd run without triggering a sync now and with accepting the previous time as base time.
-# TODO 2 support CFT list-stack-resources pagination
+
