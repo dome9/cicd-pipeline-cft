@@ -173,10 +173,19 @@ def prepare_results_to_analyze(aws_cloud_account, region, stack_name, aws_profil
         exit(2)
 
     cfn = aws_session.client('cloudformation')
-    response = cfn.list_stack_resources(
+    response_pages = list()
+    api_response = cfn.list_stack_resources(
         StackName=stack_name,
-        # NextToken='string' # TODO handle pagination
     )
+
+    # print(api_response)
+    response_pages.append(api_response)
+    while 'NextToken' in api_response:
+        api_response = cfn.list_stack_resources(
+            StackName=stack_name,
+            NextToken=api_response['NextToken']
+        )
+        response_pages.append(api_response)
 
     # get dome9 types from mapping file
     MAPPINGS_PATH = "./cfn_mappings.csv"
@@ -189,11 +198,12 @@ def prepare_results_to_analyze(aws_cloud_account, region, stack_name, aws_profil
 
     # Prepare the set of physical resource ids for the relevant d9 supported resources from the stack
     resource_physical_ids = set()  # set will make it unique
-    for resource in response['StackResourceSummaries']:
-        resource_type = resource['ResourceType']
-        resource_physical_id = resource["PhysicalResourceId"]
-        if resource_type in cfn_mappings:
-            resource_physical_ids.add(resource_physical_id)
+    for response in response_pages:
+        for resource in response['StackResourceSummaries']:
+            resource_type = resource['ResourceType']
+            resource_physical_id = resource["PhysicalResourceId"]
+            if resource_type in cfn_mappings:
+                resource_physical_ids.add(resource_physical_id)
 
     # Prepare full entity representation (id,arn,name) of each failed entity
     filed_tests_map = dict()

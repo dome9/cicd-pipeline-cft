@@ -171,13 +171,23 @@ def get_stack_types_from_aws(awsAccNumber, region, stackName, awsprofile):
         exit(2)
 
     cfn = aws_session.client('cloudformation')
-    response = cfn.list_stack_resources(
+    response_pages = list()
+    api_response = cfn.list_stack_resources(
         StackName=stackName,
-        # NextToken='string' # TODO handle pagination
     )
 
+    # print(api_response)
+    response_pages.append(api_response)
+    while 'NextToken' in api_response:
+        api_response = cfn.list_stack_resources(
+            StackName=stackName,
+            NextToken=api_response['NextToken']
+        )
+        response_pages.append(api_response)
+
+    # set will make it unique
     relevant_cfn_types = list(
-        set([i['ResourceType'] for i in response['StackResourceSummaries']]))  # set will make it unique
+        set([i['ResourceType'] for response in response_pages for i in response['StackResourceSummaries']]))
 
     return relevant_cfn_types
 
