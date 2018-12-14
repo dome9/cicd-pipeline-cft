@@ -37,7 +37,7 @@ class FailedEntity:
         rep += ''.join(filter(None, ["\t\t\ttype: ", self.type, "\n"]))
         rep += ''.join(filter(None, ["\t\t\tname: ", self.name, "\n"]))
         rep += ''.join(filter(None, ["\t\t\tid: ", self.entity_id, "\n"]))
-        rep += ''.join(filter(None, ["\t\t\tarn: ", self.arn, "\n"]))
+        # rep += ''.join(filter(None, ["\t\t\tarn: ", self.arn, "\n"]))
 
         return rep
 
@@ -58,8 +58,8 @@ class FailedTest:
         self.rule_severity = rule_severity
 
     def __str__(self):
-        rep = "\tRule:\n"
-        rep += "\t\tname: " + self.rule_name + "\n"
+        rep = "\tTest:\n"
+        rep += "\t\trule name: " + self.rule_name + "\n"
         rep += "\t\tseverity: " + self.rule_severity + "\n"
         # rep += "\t\tdescription: " + self.rule_desc + "\n"
 
@@ -67,7 +67,7 @@ class FailedTest:
 
 
 def run_assessment(bundle_id, aws_cloud_account, d9_secret, d9_key, d9region, d9_cloud_account=""):
-    print("\n"+"*" * 36 + "\nStart Assessment Execution\n" + "*" * 36)
+    print("\n" + "*" * 50 + "\nStarting Assessment Execution\n" + "*" * 50)
     d9_id = ""
     # Need to get the Dome9 cloud account representation
     if d9_cloud_account == "":
@@ -91,8 +91,9 @@ def run_assessment(bundle_id, aws_cloud_account, d9_secret, d9_key, d9region, d9
 
     r = requests.post('https://api.dome9.com/v2/assessment/bundleV2', data=json.dumps(body), headers=headers,
                       auth=(d9_key, d9_secret))
+    tn = datetime.datetime.utcnow()
 
-    print("\n"+"*" * 36 + "\nAssessment Execution Done\n" + "*" * 36)
+    print("\n" + "*" * 50 + "\nAssessment Execution Done in {} seconds \n".format((tn - t0).total_seconds()) + "*" * 50)
 
     return r.json()
 
@@ -108,18 +109,21 @@ def print_map(failed_Test_relevant_entites_map):
             print(entity)
 
 
-
 def analyze_assessment_result(assessment_result, aws_cloud_account, region, stack_name, aws_profile=''):
     # resource_physical_ids - its a list of the resource ids that related to the stack_name and supported by Dome9
     # The ids are from the cfn describe and based on the PhysicalResourceId field list_of_failed_entities - It's a
     # list of FailedEntity that will contain for each failed entities in the assessment result it's id,arn,name,tags
-    print("\n"+"*" * 36 + "\nStart To Analyze Assessment Result\n" + "*" * 36+"\n")
-    print("\nBundle - {}".format(assessment_result["request"]["name"]))
-    print("\nFailed Tests:\n")
-
+    print("\n" + "*" * 50 + "\nStarting To Analyze Assessment Result\n" + "*" * 50 + "\n")
     (resource_physical_ids, filed_tests_map) = prepare_results_to_analyze(aws_cloud_account, region, stack_name,
                                                                           aws_profile, assessment_result)
-    failed_Test_relevant_entites_map = dict()
+
+    print("\nBundle - {}".format(assessment_result["request"]["name"]))
+    print("\nNumber of total failed tests: {}\n".format(len(filed_tests_map)))
+    print("\nFailed Tests that are relevant to the Stack - {}:\n".format(stack_name))
+
+    # add statistics about the assessment result and print the stuck name
+
+    failed_test_relevant_entities_map = dict()
     for failed_test in filed_tests_map:
         fallback = True
         relevant_failed_entities = list()
@@ -148,11 +152,15 @@ def analyze_assessment_result(assessment_result, aws_cloud_account, region, stac
                     fallback = False
 
         if len(relevant_failed_entities) > 0:
-            failed_Test_relevant_entites_map[failed_test] = relevant_failed_entities
+            failed_test_relevant_entities_map[failed_test] = relevant_failed_entities
 
-    print_map(failed_Test_relevant_entites_map)
+    print_map(failed_test_relevant_entities_map)
 
-    print("\n"+"*" * 36 + "\nAssessment Analyzing Was Done\n" + "*" * 36+"\n")
+    tn = datetime.datetime.utcnow()
+    print("\n" + "*" * 50 + "\nAssessment Analyzing Was Done in {} seconds\n".format(
+        (tn - t0).total_seconds()) + "*" * 50 + "\n")
+
+    return failed_test_relevant_entities_map
 
 
 def prepare_results_to_analyze(aws_cloud_account, region, stack_name, aws_profile, assessment_result):
@@ -216,8 +224,6 @@ def prepare_results_to_analyze(aws_cloud_account, region, stack_name, aws_profil
         failed_test.set_rule_severity(test["rule"]["severity"])
         failed_test.set_rule_desc(test["rule"]["description"])
 
-
-
         filed_tests_map[failed_test] = None
 
         # for each failed asset
@@ -243,7 +249,7 @@ def prepare_results_to_analyze(aws_cloud_account, region, stack_name, aws_profil
     return resource_physical_ids, filed_tests_map
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('--d9keyId', required=True, type=str)
     parser.add_argument('--d9secret', required=True, type=str)
@@ -255,17 +261,21 @@ if __name__ == "__main__":
     parser.add_argument('--bundleId', required=True, type=int)
     parser.add_argument('--maxTimeoutMinutes', required=False, type=int, default=10)
     args = parser.parse_args()
-
     # Take start time
     t0 = datetime.datetime.utcnow()
     print("\n\n{}\nStarting...\n{}\n\nSetting now (UTC {}) ".format(80 * '*', 80 * '*', t0))
     d9region = args.region.replace('-', '_')  # dome9 identifies regions with underscores
-    result = run_assessment(bundle_id=args.bundleId, aws_cloud_account=args.awsAccountNumber, d9_secret=args.d9secret,
-                            d9_key=args.d9keyId,d9region=d9region)
-
-    analyze_assessment_result(assessment_result=result, aws_cloud_account=args.awsAccountNumber, region=args.region,
-                              stack_name=args.stackName, aws_profile=args.awsCliProfile)
-
+    result = run_assessment(bundle_id=args.bundleId, aws_cloud_account=args.awsAccountNumber,
+                            d9_secret=args.d9secret,
+                            d9_key=args.d9keyId, d9region=d9region)
+    res = analyze_assessment_result(assessment_result=result, aws_cloud_account=args.awsAccountNumber,
+                                    region=args.region,
+                                    stack_name=args.stackName, aws_profile=args.awsCliProfile)
     t2 = datetime.datetime.utcnow()
     print('Script ran for {} seconds'.format((t2 - t0).total_seconds()))
-    exit(0)
+    return res
+
+
+if __name__ == "__main__":
+    t0 = datetime.datetime.utcnow()
+    main()
