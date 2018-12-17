@@ -261,7 +261,7 @@ Where `assessment_analyze_result` is a data structure that represent the failed 
 - rule_desc
 - rule_severity
 
-#####FailedEntity -  represent an AWS entity that was part of the CFT stack name and failed to be valid in a dome9 test it's contain the next properties -  
+####FailedEntity -  represent an AWS entity that was part of the CFT stack name and failed to be valid in a dome9 test it's contain the next properties -  
 - entity_id
 - name
 - tags - {key:value}
