@@ -256,12 +256,13 @@ assessment_analyze_result  = analyze_assessment_result(res,<aws_account number>,
 ```
 Where `assessment_analyze_result` is a data structure that represent the failed tests and entities that relevant to the given stack name 
 `assessment_analyze_result` it's a map: `{FailedTest ----> [FailedEntity]}`
-#####FailedTest -  represent a dome9 test that was part of the executed assessment it's contain the next properties - 
+
+FailedTest -  represent a dome9 test that was part of the executed assessment it's contain the next properties - 
 - rule_name
 - rule_desc
 - rule_severity
 
-####FailedEntity -  represent an AWS entity that was part of the CFT stack name and failed to be valid in a dome9 test it's contain the next properties -  
+FailedEntity -  represent an AWS entity that was part of the CFT stack name and failed to be valid in a dome9 test it's contain the next properties -  
 - entity_id
 - name
 - tags - {key:value}
