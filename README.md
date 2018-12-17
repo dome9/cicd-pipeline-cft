@@ -1,19 +1,12 @@
-# Work In Progress Notice
-This is an early work-in-progress, please contact Dome9 support before using it.
 
 # CFT based CI/CD pipeline with Dome9
-These scripts demonstrate how use the SyncNow and EntityFetchStatus APIs to integrate Dome9 Compliance Engine assessments after a new test CFT stack was deployed as part of a CI/CD pipline. 
+The Dome9 CI/CD pipeline contain two steps - </br>
 
-The script `d9_sync_and_wait.py`:
-- Analyzes the exact CFT types that are used in the relevant stack
-- Determines which relevant Dome9 types are related to the CFT types
-- Calls Dome9 `SyncNow` API for the relevant cloud account
-- Polls Dome9 `EntityFetchStatus` API to determine when all relevant types have been updated (fetched) by the system
-- Exit cleanly (code 0) when all entity types are fetched or with an error if timeout occured after `maxTimeoutMinutes`
-
-This code should be integrated into a CI/CD pielines followed by a step to perfrom an ad-hoc Dome9 Compliance Engine Assessment.
-
-
+ 1.Sync and wait execution - Which trigger Dome9 fetch and sync execution </br>
+ 
+ 2.Run Assessment - Execute a specific assessment in a specific AWS region and anlyze result for a specific stack name
+ 
+ 
 ## install dependecies (if they are not already installed)
 
 ```
@@ -21,11 +14,24 @@ pip install boto3
 pip install requests
 ```
 
-## running the sample
+## Sync And Wait Step 
+These script demonstrate how use the SyncNow and EntityFetchStatus APIs to integrate Dome9 Compliance Engine assessments after a new test CFT stack was deployed as part of a CI/CD pipeline. 
+
+The script `d9_sync_and_wait.py`:
+- Analyzes the exact CFT types that are used in the relevant stack
+- Determines which relevant Dome9 types are related to the CFT types
+- Calls Dome9 `SyncNow` API for the relevant cloud account
+- Polls Dome9 `EntityFetchStatus` API to determine when all relevant types have been updated (fetched) by the system
+- Exit cleanly (code 0) when all entity types are fetched or with an error if timeout occurred after `maxTimeoutMinutes`
+
+This code should be integrated into a CI/CD pipelines followed by a step to perform an ad-hoc Dome9 Compliance Engine Assessment.
+
+
+### running the sample
 - get your Dome9 API keys and make sure you have an AWS credentials profile for the relevant AWS account
-- copy sample.sh or modify it with your own settings.
+- copy `sample_run_sync_wait.sh` or modify it with your own settings.
 ```
-$ ./sample.sh
+$ ./sample_run_sync_wait.sh
 Starting...
 Setting now (UTC 2018-09-22 03:10:55.172242) as base time
 
@@ -105,3 +111,160 @@ Pending (0):
 
 *** All supported services were successfully updated (fetched) ***
 ```
+
+## Run Assessment Step
+These script demonstrate how use the Assessment API for specific aws account and region and analyze the result based on a given stack name  
+
+The script `d9_run_assessment.py`:
+- Execute a specific Dome9's assessment based on the given parameter  `bundleId`
+- Analyze the run assessment result and return a data structure that represent the failed tests and entities that related to the given parameter `stackName` 
+- Determines which relevant Dome9 types are related to the CFT types
+- Exit cleanly (code 0)
+
+This code should be integrated into a CI/CD pipelines.
+
+
+### Running the sample
+- get your Dome9 API keys and make sure you have an AWS credentials profile for the relevant AWS account
+- copy `sample_run_assessment.sh`  or modify it with your own settings.
+```
+$ ./sample_run_assessment.sh
+********************************************************************************
+Starting...
+********************************************************************************
+
+Setting now (UTC 2018-12-17 19:24:28.635800) 
+
+**************************************************
+Starting Assessment Execution
+**************************************************
+
+Resolving Dome9 account id from aws account number: 1234567890
+Found it. Dome9 cloud account Id=b7197e73-04c2-4eb3-9f80-da2e842ed5ac
+
+**************************************************
+Assessment Execution Done in 6.935792 seconds 
+**************************************************
+
+**************************************************
+Starting To Analyze Assessment Result
+**************************************************
+
+
+Bundle - AWS Dome9 Network Alerts
+
+Number of total failed tests: 13
+
+
+Failed Tests that are relevant to the Stack - MyStackExample:
+
+	Test:
+		rule name: Security Groups - with admin ports too exposed to the public internet
+		severity: High
+
+
+		Failed Entities:
+
+			Entity:
+			type: securityGroup
+			name: MyStackExample-InstanceSecurityGroup-RNHDX4FYJR54
+			id: sg-00d5387eeb014b60c
+
+	Test:
+		rule name: Restrict outbound traffic to that which is necessary, and specifically deny all other traffic
+		severity: Medium
+
+
+		Failed Entities:
+
+			Entity:
+			type: securityGroup
+			name: MyStackExample-InstanceSecurityGroup-RNHDX4FYJR54
+			id: sg-00d5387eeb014b60c
+
+	Test:
+		rule name: Ensure no security groups allow ingress from 0.0.0.0/0 to SSH (TCP:22)
+		severity: High
+
+
+		Failed Entities:
+
+			Entity:
+			type: securityGroup
+			name: JR54-InstanceSecurityGroup-RNHDX4FYRJ45
+			id: sg-00d5387eeb014b60c
+
+	Test:
+		rule name: Instance with administrative service: SSH (TCP:22) is too exposed to the public internet
+		severity: High
+
+
+		Failed Entities:
+
+			Entity:
+			type: instance
+			name: 
+			id: i-06c523fb832a0531f
+
+	Test:
+		rule name: Process for Security Group Management - Managing security groups
+		severity: High
+
+
+		Failed Entities:
+
+			Entity:
+			type: securityGroup
+			name: MyStackExample-InstanceSecurityGroup-RNHDX4FYJR54
+			id: sg-00d5387eeb014b60c
+
+	Test:
+		rule name: Instance with administrative service: SSH (TCP:22) is exposed to a wide network scope
+		severity: Medium
+
+
+		Failed Entities:
+
+			Entity:
+			type: instance
+			name: 
+			id: i-06c523fb832a0531f
+
+
+**************************************************
+Assessment Analyzing Was Done in 8.337687 seconds
+**************************************************
+
+Script ran for 8.336446 seconds
+```
+
+### Embed in CI/CD pipeline 
+The script `d9_run_assessment.py` have well defined API so he can be embed in other process 
+
+
+Add the next line to your warped python
+```
+from d9_run_assessment import run_assessment
+from d9_run_assessment import analyze_assessment_result
+```
+
+Then you can preforme the next calls
+```
+assessment_execution_result = run_assessment(<bundel_id>, <aws_account number>, <dome9 secret>,<dome9 key>,<aws_region>)
+
+assessment_analyze_result  = analyze_assessment_result(res,<aws_account number>,<aws_region>,<cft stack name>)
+```
+Where `assessment_analyze_result` is a data structure that represent the failed tests and entities that relevant to the given stack name 
+`assessment_analyze_result` it's a map: `{FailedTest ----> [FailedEntity]}`
+#####FailedTest -  represent a dome9 test that was part of the executed assessment it's contain the next properties - 
+- rule_name
+- rule_desc
+- rule_severity
+
+#####FailedEntity -  represent an AWS entity that was part of the CFT stack name and failed to be valid in a dome9 test it's contain the next properties -  
+- entity_id
+- name
+- tags - {key:value}
+- type
+
+``

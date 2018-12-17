@@ -8,6 +8,8 @@ import csv
 import argparse
 import datetime
 
+t0 = datetime.datetime.utcnow()
+
 
 class FailedEntity:
     def __init__(self):
@@ -66,7 +68,8 @@ class FailedTest:
         return rep
 
 
-def run_assessment(bundle_id, aws_cloud_account, d9_secret, d9_key, d9region, d9_cloud_account=""):
+def run_assessment(bundle_id, aws_cloud_account, d9_secret, d9_key, region, d9_cloud_account=""):
+    d9region = region.replace('-', '_')  # dome9 identifies regions with underscores
     print("\n" + "*" * 50 + "\nStarting Assessment Execution\n" + "*" * 50)
     d9_id = ""
     # Need to get the Dome9 cloud account representation
@@ -123,12 +126,12 @@ def analyze_assessment_result(assessment_result, aws_cloud_account, region, stac
 
     # add statistics about the assessment result and print the stuck name
 
+
     failed_test_relevant_entities_map = dict()
     for failed_test in filed_tests_map:
         fallback = True
         relevant_failed_entities = list()
         for failed_entity in filed_tests_map[failed_test]:
-
             # 1st check with the tags "key": "aws:cloudformation:stack-name" equals to our stack_name
             if failed_entity.tags:
                 for tag in failed_entity.tags:
@@ -262,12 +265,11 @@ def main():
     parser.add_argument('--maxTimeoutMinutes', required=False, type=int, default=10)
     args = parser.parse_args()
     # Take start time
-    t0 = datetime.datetime.utcnow()
     print("\n\n{}\nStarting...\n{}\n\nSetting now (UTC {}) ".format(80 * '*', 80 * '*', t0))
-    d9region = args.region.replace('-', '_')  # dome9 identifies regions with underscores
+
     result = run_assessment(bundle_id=args.bundleId, aws_cloud_account=args.awsAccountNumber,
                             d9_secret=args.d9secret,
-                            d9_key=args.d9keyId, d9region=d9region)
+                            d9_key=args.d9keyId, region=args.region)
     res = analyze_assessment_result(assessment_result=result, aws_cloud_account=args.awsAccountNumber,
                                     region=args.region,
                                     stack_name=args.stackName, aws_profile=args.awsCliProfile)
@@ -277,5 +279,5 @@ def main():
 
 
 if __name__ == "__main__":
-    t0 = datetime.datetime.utcnow()
+
     main()
