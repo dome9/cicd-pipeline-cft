@@ -239,33 +239,33 @@ Script ran for 8.336446 seconds
 ```
 
 ### Embed in CI/CD pipeline 
-The script `d9_run_assessment.py` have well defined API so he can be embed in other process 
+The script `d9_run_assessment.py` has a well defined API so it can be embed in other processes
 
 
-Add the next line to your warped python
+Add the next line to your python script
 ```
 from d9_run_assessment import run_assessment
 from d9_run_assessment import analyze_assessment_result
 ```
 
-Then you can preforme the next calls
+Then you can preform the next calls:
 ```
 assessment_execution_result = run_assessment(<bundel_id>, <aws_account number>, <dome9 secret>,<dome9 key>,<aws_region>)
 
 assessment_analyze_result  = analyze_assessment_result(res,<aws_account number>,<aws_region>,<cft stack name>)
 ```
-Where `assessment_analyze_result` is a data structure that represent the failed tests and entities that relevant to the given stack name 
+Where `assessment_analyze_result` is a data structure that represents the failed tests and relevant entities to the given stack name 
 `assessment_analyze_result` it's a map: `{FailedTest ----> [FailedEntity]}`
 
-FailedTest -  represent a dome9 test that was part of the executed assessment it's contain the next properties - 
+FailedTest -  represents a Dome9 test that was part of the executed assessment it contains these properties: 
 - rule_name
 - rule_desc
 - rule_severity
 
-FailedEntity -  represent an AWS entity that was part of the CFT stack name and failed to be valid in a dome9 test it's contain the next properties -  
+FailedEntity -  represents an AWS entity that was part of the CFT stack name and failed in a dome9 test. It contains these properties:
 - entity_id
 - name
 - tags - {key:value}
 - type
 
-``
+
