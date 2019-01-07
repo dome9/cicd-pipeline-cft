@@ -9,6 +9,7 @@ import json
 import time
 import dateutil.parser
 import argparse
+import os
 
 
 def d9_sync_and_wait(d9keyId, d9secret, awsAccNumber, region, stackName, excludedTypes, maxTimeoutMinutes=10,
@@ -131,7 +132,7 @@ def get_relevant_stack_types(awsAccNumber, region, stackName, excludedTypes, aws
     print_list(relevant_cfn_types, 'CFN types found in this stack')
 
     # get dome9 types from mapping file
-    MAPPINGS_PATH = "./cfn_mappings.csv"
+    MAPPINGS_PATH = "%s/cfn_mappings.csv" % (os.path.dirname(os.path.realpath(__file__)))
     cfn_mappings = dict()
     with open(MAPPINGS_PATH, "r") as f:
         reader = csv.DictReader(f)
@@ -241,7 +242,9 @@ if __name__ == "__main__":
                           awsprofile=args.awsCliProfile, d9keyId=args.d9keyId, d9secret=args.d9secret)
 
     t2 = datetime.datetime.utcnow()
-    print('Script ran for {} seconds'.format((t2 - t1).total_seconds()))
+    print("\n" + "*" * 50 + "\nRun \"Sync And Wait\" Script ran for {} seconds\n".format(
+        (t2 - t1).total_seconds()) + "*" * 50 + "\n")
+
     if (st.isAllCompleted()):
         print("\n*** All supported services were successfully updated (fetched) ***\n")
         exit(0)

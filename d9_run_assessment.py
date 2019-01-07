@@ -7,8 +7,10 @@ import json
 import csv
 import argparse
 import datetime
+import os
 
 t0 = datetime.datetime.utcnow()
+total_sec = 0
 
 
 class FailedEntity:
@@ -69,6 +71,8 @@ class FailedTest:
 
 
 def run_assessment(bundle_id, aws_cloud_account, d9_secret, d9_key, region, d9_cloud_account=""):
+    global t0,total_sec
+    t0 = datetime.datetime.utcnow()
     d9region = region.replace('-', '_')  # dome9 identifies regions with underscores
     print("\n" + "*" * 50 + "\nStarting Assessment Execution\n" + "*" * 50)
     d9_id = ""
@@ -96,6 +100,8 @@ def run_assessment(bundle_id, aws_cloud_account, d9_secret, d9_key, region, d9_c
                       auth=(d9_key, d9_secret))
     tn = datetime.datetime.utcnow()
 
+    total_sec = total_sec + (tn - t0).total_seconds()
+
     print("\n" + "*" * 50 + "\nAssessment Execution Done in {} seconds \n".format((tn - t0).total_seconds()) + "*" * 50)
 
     return r.json()
@@ -113,6 +119,8 @@ def print_map(failed_Test_relevant_entites_map):
 
 
 def analyze_assessment_result(assessment_result, aws_cloud_account, region, stack_name, aws_profile=''):
+    global t0, total_sec
+    t0 = datetime.datetime.utcnow()
     # resource_physical_ids - its a list of the resource ids that related to the stack_name and supported by Dome9
     # The ids are from the cfn describe and based on the PhysicalResourceId field list_of_failed_entities - It's a
     # list of FailedEntity that will contain for each failed entities in the assessment result it's id,arn,name,tags
@@ -160,6 +168,7 @@ def analyze_assessment_result(assessment_result, aws_cloud_account, region, stac
     print_map(failed_test_relevant_entities_map)
 
     tn = datetime.datetime.utcnow()
+    total_sec = total_sec + (tn - t0).total_seconds()
     print("\n" + "*" * 50 + "\nAssessment Analyzing Was Done in {} seconds\n".format(
         (tn - t0).total_seconds()) + "*" * 50 + "\n")
 
@@ -199,7 +208,7 @@ def prepare_results_to_analyze(aws_cloud_account, region, stack_name, aws_profil
         response_pages.append(api_response)
 
     # get dome9 types from mapping file
-    MAPPINGS_PATH = "./cfn_mappings.csv"
+    MAPPINGS_PATH = "%s/cfn_mappings.csv" % (os.path.dirname(os.path.realpath(__file__)))
     cfn_mappings = dict()
     with open(MAPPINGS_PATH, "r") as f:
         reader = csv.DictReader(f)
@@ -273,8 +282,9 @@ def main():
     res = analyze_assessment_result(assessment_result=result, aws_cloud_account=args.awsAccountNumber,
                                     region=args.region,
                                     stack_name=args.stackName, aws_profile=args.awsCliProfile)
-    t2 = datetime.datetime.utcnow()
-    print('Script ran for {} seconds'.format((t2 - t0).total_seconds()))
+
+    print("\n" + "*" * 50 + "\nRun and analyzing Assessment Script ran for {} seconds\n".format(
+        total_sec) + "*" * 50 + "\n")
     return res
 
 
