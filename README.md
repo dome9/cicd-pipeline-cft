@@ -4,7 +4,7 @@ The Dome9 CI/CD pipeline contain two steps - </br>
 
  1.Sync and wait execution - Which trigger Dome9 fetch and sync execution </br>
  
- 2.Run Assessment - Execute a specific assessment in a specific AWS region and anlyze result for a specific stack name
+ 2.Run Assessment - Which Execute a specific assessment in a specific AWS region and anlyze result for a specific stack name
  
  
 ## install dependecies (if they are not already installed)
