@@ -1,0 +1,7 @@
+{
+  "Parameters" : {
+    "VPCName" : "vpc-37dddf51",
+    "App":"bastion",
+    "EnvType":"prod"
+  }
+}

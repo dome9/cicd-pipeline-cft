@@ -1,0 +1,108 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Mappings": {
+      "PortsMap": {
+          "app1": { "port": 80 },
+          "app2": { "port": 443 },
+          "bastion": { "port": 22 }
+      }
+  },
+  "Parameters": {
+      "App": {
+          "Type": "String",
+          "AllowedValues": [ "app1", "app2", "bastion" ]
+      },
+      "EnvType": {
+          "Default": "test",
+          "Type": "String",
+          "AllowedValues": [ "prod", "dev", "test" ]
+      },
+      "VPCName": {
+        "Description": "ID of the existing VPC.",
+        "Type": "AWS::EC2::VPC::Id"
+      }
+  },
+  "Conditions": {
+      "CreateDevResources": { "Fn::Equals": [{ "Ref": "EnvType" }, "dev" ] }        
+  },
+  "Resources": {
+      "badsg1": {
+          "Type": "AWS::EC2::SecurityGroup",
+          "Properties": {
+              "GroupDescription": "dynamic port - find in map given user parameter",
+              "SecurityGroupIngress": [
+                  {
+                      "CidrIp": "0.0.0.0/0",
+                      "FromPort": { "Fn::FindInMap": [ "PortsMap", { "Ref": "App" }, "port" ] },
+                      "ToPort": { "Fn::FindInMap": [ "PortsMap", { "Ref": "App" }, "port" ] },
+                      "IpProtocol": "tcp"
+                  }
+              ],
+              "VpcId" : { "Ref" : "VPCName" }
+          }
+      },
+      "badsg2": {
+          "Type": "AWS::EC2::SecurityGroup",
+          "Properties": {
+              "GroupDescription": "misconfigured CIDR whitelist",
+              "SecurityGroupIngress": [
+                  {
+                      "CidrIp": "1.2.3.4/0",
+                      "FromPort": 22,
+                      "ToPort": 22,
+                      "IpProtocol": "tcp"
+                  }
+              ],
+              "VpcId" : { "Ref" : "VPCName" }
+          }
+      },
+      "badsg3": {
+          "Type": "AWS::EC2::SecurityGroup",
+          "Properties": {
+              "GroupDescription": "port range problem",
+              "SecurityGroupIngress": [
+                  {
+                      "CidrIp": "0.0.0.0/0",
+                      "FromPort": 20,
+                      "ToPort": 30,
+                      "IpProtocol": "tcp"
+                  }
+              ],
+              "VpcId" : { "Ref" : "VPCName" }
+          }
+      },
+      "badsg4": {
+          "Type": "AWS::EC2::SecurityGroup",
+          "Properties": {
+              "GroupDescription": "inbound rule defined externally",
+              "VpcId" : { "Ref" : "VPCName" }
+          }
+      },
+      "badInboundRule": {
+          "Type": "AWS::EC2::SecurityGroupIngress",
+          "Properties":{
+            "IpProtocol": "tcp",
+            "FromPort": "22",
+            "ToPort": "22",
+            "CidrIp": "0.0.0.0/0",
+            "GroupId": { "Fn::GetAtt": [ "badsg4", "GroupId" ] }
+          }
+      },
+      "goodSG1": {
+          "Type": "AWS::EC2::SecurityGroup",
+          "Properties": {
+              "GroupDescription": "this one is fine as it is only allowed in dev",
+              "SecurityGroupIngress": [
+                  {
+                      "CidrIp": "0.0.0.0/0",
+                      "FromPort": 22,
+                      "ToPort" : 22,
+                      "IpProtocol": "tcp"
+                  }
+              ],
+              "VpcId" : { "Ref" : "VPCName" }
+          },
+          "Condition": "CreateDevResources"
+      }
+  }
+}
