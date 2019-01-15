@@ -42,7 +42,7 @@
     },
     "TestStackConfig": {
       "Default": "my-app-cft/test-stack-configuration.json",
-      "Description": "The configuration file name for the test  stack",
+      "Description": "The configuration file name for the test stack",
       "Type": "String"
     },
     "ProdStackName": {
@@ -63,6 +63,16 @@
     "Email": {
       "Description": "The email address where CodePipeline sends pipeline notifications",
       "Type": "String"
+    },
+    "TestStackRegion":{
+      "Description": "The region where the test stack is going to deploy to",
+      "Type": "String"
+
+    },
+    "AWSAccount":{
+      "Description": "The AWS Account where the test stack going to deploy to",
+      "Type": "String"
+
     }
   },
   "Metadata": {
@@ -538,7 +548,7 @@
 				"OutputArtifacts": [],
                 "Configuration": {
                   "FunctionName": {"Ref":"TestStackValidationLambda"},
-				  "UserParameters": {"Ref":"TestStackName"}
+				  "UserParameters": {"Fn::Sub":"{\"stackName\":\"${TestStackName}\",\"region\":\"${TestStackRegion}\",\"awsAccount\":\"${AWSAccount}\",\"bundleId\":\"${Dome9BundleId}\"}"}
                 },
 					"RunOrder": "2"
 			  },

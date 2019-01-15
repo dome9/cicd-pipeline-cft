@@ -1,4 +1,4 @@
-# DevSecOps in the CI/CD pipeline
+# Dome9 - DevSecOps in the CI/CD pipeline
 
 ## Setup Dome9 account (www.dome9.com)
 1. Make sure you have access to a Dome9 account (www.dome9.com)
@@ -20,6 +20,7 @@ it'll take about 2 minutes for the pipeline to be created.
 1. Once the CFN service finish creating your pipeline, go to the Lambda console and add 2 (encrypted) parameters to the `CFNValidateLambda...`:
     1. d9key - your Dome9 v2 api key (that you copied before)
     1. d9secret - your Dome9 v2 secret (that you copied before)
+    1. aws account
 
 Use the newly created `DevSecOpsPiplineKey` KMS key to encrypt the values
 

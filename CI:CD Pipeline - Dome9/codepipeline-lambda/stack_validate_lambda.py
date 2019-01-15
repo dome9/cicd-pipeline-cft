@@ -23,7 +23,7 @@ import zipfile
 
 import os
 from base64 import b64decode
-
+from utils import get_user_params
 from dome9.d9_run_assessment import run_assessment
 from dome9.d9_run_assessment import analyze_assessment_result
 from dome9.d9_sync_and_wait import d9_sync_and_wait
@@ -143,37 +143,38 @@ def delete_stack(stack):
 
 # --- Security Groups ---
 # 4.1 Ensure no security groups allow ingress from 0.0.0.0/0 to port 22 (Scored)
-def control_4_1_ensure_ssh_not_open_to_world(regions, stackName):
-    """Summary
-
-    Returns:
-        TYPE: Description
-    """
-    result = True
-    failReason = ""
-    offenders = []
-    control = "4.1"
-    description = "Ensure that security groups allow ingress from approved CIDR range to port 22"
-    scored = True
-    for n in regions:
-        client = boto3.client('ec2', region_name=n)
-        response = client.describe_security_groups(
-            Filters=[{'Name': 'tag:aws:cloudformation:stack-name', 'Values': [stackName]}])
-        for m in response['SecurityGroups']:
-            if "72.21.196.67/32" not in str(m['IpPermissions']):
-                for o in m['IpPermissions']:
-                    try:
-                        if int(o['FromPort']) <= 22 <= int(o['ToPort']):
-                            result = False
-                            failReason = "Found Security Group with port 22 open to the wrong source IP range"
-                            offenders.append(str(m['GroupId']))
-                    except:
-                        if str(o['IpProtocol']) == "-1":
-                            result = False
-                            failReason = "Found Security Group with port 22 open to the wrong source IP range"
-                            offenders.append(str(n) + " : " + str(m['GroupId']))
-    return {'Result': result, 'failReason': failReason, 'Offenders': offenders, 'ScoredControl': scored,
-            'Description': description, 'ControlId': control}
+# Deprecatged  - No need any more using the run assessment API
+#def control_4_1_ensure_ssh_not_open_to_world(regions, stackName):
+#    """Summary
+#
+#    Returns:
+#        TYPE: Description
+#    """
+#    result = True
+#    failReason = ""
+#    offenders = []
+#    control = "4.1"
+#    description = "Ensure that security groups allow ingress from approved CIDR range to port 22"
+#    scored = True
+#    for n in regions:
+#        client = boto3.client('ec2', region_name=n)
+#        response = client.describe_security_groups(
+#            Filters=[{'Name': 'tag:aws:cloudformation:stack-name', 'Values': [stackName]}])
+#        for m in response['SecurityGroups']:
+#            if "72.21.196.67/32" not in str(m['IpPermissions']):
+#                for o in m['IpPermissions']:
+#                    try:
+#                        if int(o['FromPort']) <= 22 <= int(o['ToPort']):
+#                            result = False
+#                            failReason = "Found Security Group with port 22 open to the wrong source IP range"
+#                            offenders.append(str(m['GroupId']))
+#                    except:
+#                        if str(o['IpProtocol']) == "-1":
+#                            result = False
+#                            failReason = "Found Security Group with port 22 open to the wrong source IP range"
+#                            offenders.append(str(n) + " : " + str(m['GroupId']))
+#    return {'Result': result, 'failReason': failReason, 'Offenders': offenders, 'ScoredControl': scored,
+#            'Description': description, 'ControlId': control}
 
 
 def get_regions():
@@ -248,40 +249,64 @@ def lambda_handler(event, context):
     Returns:
         TYPE: Description
     """
-    # Run all control validations.
-    # The control object is a dictionary with the value
-    # result : Boolean - True/False
-    # failReason : String - Failure description
-    # scored : Boolean - True/False
-    # Check if the script is initiade from AWS Config Rules
+
     # Print the entire event for tracking
     print("Received event: " + json.dumps(event, indent=2))
+
     # Extract the Job ID
     job_id = event['CodePipeline.job']['id']
+
     # Globally used resources
     region_list = get_regions()
-    stackName = event['CodePipeline.job']['data']['actionConfiguration']['configuration']['UserParameters']
+
+    # Extract the Job Data
+    job_data = event['CodePipeline.job']['data']
+
+    params = get_user_params(job_data)
+
+    stackName = params['stackName']
+    region = params['region']
+    aws_account = params['awsAccount']
+    bundleId = params['bundelId']
+    excludedTypes = ['LogGroups,IamCredentialReport']
+
+
     print("stackName: " + stackName)
+    print("Going to execute Sync and wait API call")
 
-    # Run individual controls.
-    # Comment out unwanted controls
-    control4 = []
-    control_4_1_result = control_4_1_ensure_ssh_not_open_to_world(region_list, stackName)
-    print('control_4_1_result: ' + str(control_4_1_result['Result']))
-    control4.append(control_4_1_result)
+    t0_syn_and_wait = datetime.utcnow()
 
-    # Join results
-    controls = []
-    controls.append(control4)
+    st = d9_sync_and_wait(awsAccNumber=aws_account, region=region, stackName=stackName,
+                          excludedTypes=excludedTypes, maxTimeoutMinutes=10,
+                          d9keyId=KEY_DECRYPTED, d9secret=SECRET_DECRYPTED)
 
-    # Build JSON structure for console output if enabled
-    if SCRIPT_OUTPUT_JSON:
-        json_output(controls)
-    if (control_4_1_result['Result']):
-        print("\n")
-        put_job_success(job_id, 'Job succesful, minimal or no risk detected.')
+    t2_syn_and_wait = datetime.datetime.utcnow()
+    print("\n" + "*" * 50 + "\nRun \"Sync And Wait\" Script ran for {} seconds\n".format(
+        (t0_syn_and_wait - t2_syn_and_wait).total_seconds()) + "*" * 50 + "\n")
+
+    if (st.isAllCompleted()):
+        print("\n*** All supported services were successfully updated (fetched) ***\n")
+        print("Going to run assessment analysing related to the test stack - {}".format(stackName))
+
+        t0_run_assessment = datetime.utcnow()
+
+        result = run_assessment(bundle_id=bundleId, aws_cloud_account=aws_account,
+                                d9_secret=SECRET_DECRYPTED,d9_key=KEY_DECRYPTED, region=region)
+
+        res = analyze_assessment_result(assessment_result=result, aws_cloud_account=aws_account,
+                                        region=region, stack_name=stackName)
+
+        tn_run_assessment = datetime.utcnow()
+
+        print("\n" + "*" * 50 + "\nRun and analyzing Assessment Script ran for {} seconds\n".format(
+            (t0_run_assessment - tn_run_assessment).total_seconds()) + "*" * 50 + "\n")
+
+        if len(res) == 0:
+            put_job_success(job_id,"Stack simulation and validation was succeeded. No Compliance violation for Dome9  BundelId - {} were found  ".format(bundleId))
+        else:
+            if stack_exists(stackName):
+                delete_stack(stackName)
+            put_job_failure(job_id,"Run Assessment was failed for stack - {}. result - {}".format(stackName, res))
     else:
-        print("\n")
-        if stack_exists(stackName):
-            delete_stack(stackName)
-        put_job_failure(job_id, 'Function exception: Found Security group SSH violation and deleted the stack. Check the logs ')
+        put_job_failure(job_id, "not all types were updated. Those are the types that their dome9 fetch is still pending -  {}".format(",".join(st.pending)))
+
