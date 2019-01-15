@@ -13,15 +13,23 @@ def evaluate_cft_template(d9key, d9secret, bundleId, template, cftparams):
     params = convert_parameters_to_dome9_format(cftparams)
     print('using CFT parameters:%s' % params)
 
-    d9_request_data = json.dumps({
-        'Id' : bundleId,
-        'Region' : 'us_east_1',
-        'cft' : { 'rootName':'cft.json', 'params':params, 'files':[{'name':'cft.json', 'template': template }]}
-        })
-    headers = {'content-type': 'application/json'}
+    d9_request_data = {
+        "Id": bundleId,
+        "Region": "us_east_1",
+        "cft": {"rootName": "cft.json", "params": params, "files": [{"name": "cft.json", "template": template}], "isCft": True}
+        }
+    headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    }
 
-    response = requests.request("POST", url, data=d9_request_data, headers=headers, auth=HTTPBasicAuth(d9key, d9secret))
-    # print(response.text)
+    #print(d9_request_data)
+
+    response = requests.post('https://api.dome9.com/v2/assessment/bundleV2', data=json.dumps(d9_request_data), headers=headers, auth=(d9key, d9secret))
+
+    response.raise_for_status()
+
+    #print(response.text)
     # TODO: Error handling for various issues (auth, permissions, bundle, template)
     d9resp = json.loads(response.text)
     # print(response.text)
