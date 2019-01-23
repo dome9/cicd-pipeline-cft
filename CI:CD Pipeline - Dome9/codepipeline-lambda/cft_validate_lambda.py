@@ -211,7 +211,7 @@ def lambda_handler(event, context):
     """
     try:
         # Print the entire event for tracking
-        print("Received event: " + json.dumps(event, indent=2))
+        #print("Received event: " + json.dumps(event, indent=2))
 
         # Extract the Job ID
         job_id = event['CodePipeline.job']['id']
@@ -228,6 +228,7 @@ def lambda_handler(event, context):
         input_artifact = params['input']
         template_file = params['file']
         output_bucket = params['output']
+        aws_account = params['awsAccount']
 
         d9_bundle_id = params['d9BundleId'] # the ID of the bundle in the Dome9 Security platform
         cft_parameters = params['prodStackConfig'] # We need this info for a correct evaluation of the CFT
@@ -240,14 +241,14 @@ def lambda_handler(event, context):
 
         # Get the JSON template file out of the artifact
         template = get_template(s3, input_artifact_data, template_file)
-        print("CFT template: " + template.replace("\n","")) # it prints much nicer in Lambda / CWL without the NL
+        #print("CFT template: " + template.replace("\n","")) # it prints much nicer in Lambda / CWL without the NL
 
         # Get the Production version of the CFT parameters, We need this info for a correct evaluation of the CFT
         cft_params = get_template(s3, input_artifact_data, cft_parameters)
-        print("(prod) CFT parameters: " + cft_params.replace("\n",""))
+        #print("(prod) CFT parameters: " + cft_params.replace("\n",""))
 
         # Validate CFT template using Dome9 assessment api
-        risk, failedRules, assessment_url = evaluate_cft_template(KEY_DECRYPTED, SECRET_DECRYPTED, d9_bundle_id , template, cft_params)
+        risk, failedRules, assessment_url = evaluate_cft_template(KEY_DECRYPTED, SECRET_DECRYPTED, d9_bundle_id , template, cft_params,aws_account)
         #risk, failedRules = evaluate_template(template)
 
         # Based on risk, store the template in the correct S3 bucket for future process

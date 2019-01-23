@@ -1,7 +1,7 @@
 import json
 
 def get_user_params(job_data):
-    print(job_data)
+    #print(job_data)
     """Decodes the JSON user parameters and validates the required properties.
 
     Args:
