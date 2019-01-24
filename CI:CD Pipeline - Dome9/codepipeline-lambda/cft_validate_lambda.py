@@ -229,7 +229,8 @@ def lambda_handler(event, context):
         input_artifact = params['input']
         template_file = params['file']
         output_bucket = params['output']
-        region= params['region']
+        #print(params)
+        region = params['region']
 
         d9_bundle_id = params['d9BundleId'] # the ID of the bundle in the Dome9 Security platform
         cft_parameters = params['prodStackConfig'] # We need this info for a correct evaluation of the CFT

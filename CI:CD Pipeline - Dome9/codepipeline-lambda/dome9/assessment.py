@@ -13,12 +13,14 @@ def evaluate_cft_template(d9_key, d9_secret, bundle_id, template, cft_params, re
 
     params = convert_parameters_to_dome9_format(cft_params)
     print('using CFT parameters:%s' % params)
-    request_id = uuid.uuid.uuid4()
+    request_id = uuid.uuid4()
 
+    d9_region = region.replace("-", "_")
+
+    # "CloudAccountId": d9_id, -   No need to use cloud account on the static cft analysis
     d9_request_data = {
-        # "CloudAccountId": d9_id, -   No need to use cloud account on the static cft analysis
         "id": bundle_id,
-        "region": region,
+        "region": d9_region,
         "cft": {
             "rootName": "cft.json",
             "params": params,
@@ -26,15 +28,15 @@ def evaluate_cft_template(d9_key, d9_secret, bundle_id, template, cft_params, re
                 {"name": "cft.json", "template": template}
             ]
         },
-        "isCft": True,
-        "requestId": request_id
+        "isCft": True
+        ,"requestId": str(request_id)
     }
     headers = {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
     }
 
-    # print(d9_request_data)
+    #print(d9_request_data)
 
     try:
         response = requests.post('https://api.dome9.com/v2/assessment/bundleV2', data=json.dumps(d9_request_data),
@@ -45,7 +47,7 @@ def evaluate_cft_template(d9_key, d9_secret, bundle_id, template, cft_params, re
         d9resp = json.loads(response.text)
 
     except Exception as e:
-        raise Exception("Error - Dome9  API request_id: {}\n Error message: {}" % request_id, e)
+        raise Exception("Error - Dome9  API request_id: {}\n Error message: {}".format(request_id, e))
 
     # print(response.text)
     if 'errorMessage' in d9resp.keys():  # Evaluation error
