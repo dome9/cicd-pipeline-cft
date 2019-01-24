@@ -171,6 +171,7 @@ def s3_next_step(s3, bucket, risk, failedRules,assessment_url, template, job_id)
     for item in template:
         tmp_file.write(item)
     tmp_file.flush()
+
     # Process file based on risk value
     if risk < 5:
         with zipfile.ZipFile(tmp_zip.name, 'w') as zip:
@@ -228,7 +229,7 @@ def lambda_handler(event, context):
         input_artifact = params['input']
         template_file = params['file']
         output_bucket = params['output']
-        aws_account = params['awsAccount']
+        region= params['region']
 
         d9_bundle_id = params['d9BundleId'] # the ID of the bundle in the Dome9 Security platform
         cft_parameters = params['prodStackConfig'] # We need this info for a correct evaluation of the CFT
@@ -248,11 +249,20 @@ def lambda_handler(event, context):
         #print("(prod) CFT parameters: " + cft_params.replace("\n",""))
 
         # Validate CFT template using Dome9 assessment api
-        risk, failedRules, assessment_url = evaluate_cft_template(KEY_DECRYPTED, SECRET_DECRYPTED, d9_bundle_id , template, cft_params,aws_account)
+        risk, failedRules, assessment_url = evaluate_cft_template(KEY_DECRYPTED, SECRET_DECRYPTED, d9_bundle_id , template, cft_params,region)
         #risk, failedRules = evaluate_template(template)
 
         # Based on risk, store the template in the correct S3 bucket for future process
-        s3_next_step(s3, output_bucket, risk, failedRules, assessment_url, template, job_id)
+        #s3_next_step(s3, output_bucket, risk, failedRules, assessment_url, template, job_id)
+
+        if risk > 0:
+            print("High risk file, fail pipeline")
+            put_job_failure(job_id,
+                            'CFT validation failed (High Risk Detected)  ***  Assessment URL: %s  ***  Failed Rules: %s' % (
+                            assessment_url, str(failedRules)))
+        else:
+            put_job_success(job_id, 'Job succesful, minimal or no risk detected.')
+
 
     except Exception as e:
         # If any other exceptions which we didn't expect are raised

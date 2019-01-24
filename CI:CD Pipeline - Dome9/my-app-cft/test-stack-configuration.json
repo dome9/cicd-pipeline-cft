@@ -1,5 +1,7 @@
 {
   "Parameters" : {
-    "VPCName" : "vpc-35e7e553"
+    "VPCName" : "vpc-35e7e553",
+    "App":"app1",
+    "EnvType":"test"
   }
 }

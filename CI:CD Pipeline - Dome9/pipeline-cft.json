@@ -500,7 +500,7 @@
                     "Ref": "CFTValidateLambda"
                   },
                   "UserParameters": {
-                    "Fn::Sub": "{\"input\": \"TemplateSource\", \"file\": \"${TemplateFilePath}\",\"output\": \"${S3Bucket}\" ,\"d9BundleId\":${Dome9BundleId} , \"prodStackConfig\":\"${ProdStackConfig}\", \"awsAccount\":\"${AWSAccount}\" }"
+                    "Fn::Sub": "{\"input\": \"TemplateSource\", \"file\": \"${TemplateFilePath}\",\"output\": \"${S3Bucket}\" ,\"d9BundleId\":${Dome9BundleId} , \"prodStackConfig\":\"${ProdStackConfig}\",\"region\":\"${TestStackRegion}\"}"
                   }
                 },
                 "OutputArtifacts": [
