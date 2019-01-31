@@ -337,7 +337,7 @@
           ]
         },
         "Description": "Always return success",
-        "Timeout": 60,
+        "Timeout": 900,
         "Handler": "stack_validate_lambda.lambda_handler",
         "Runtime": "python2.7"
       }

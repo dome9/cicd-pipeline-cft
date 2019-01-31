@@ -251,7 +251,7 @@ def lambda_handler(event, context):
     """
 
     # Print the entire event for tracking
-    print("Received event: " + json.dumps(event, indent=2))
+    #print("Received event: " + json.dumps(event, indent=2))
 
     # Extract the Job ID
     job_id = event['CodePipeline.job']['id']
@@ -262,12 +262,14 @@ def lambda_handler(event, context):
     # Extract the Job Data
     job_data = event['CodePipeline.job']['data']
 
-    params = get_user_params(job_data)
+    print("Going ot retrieve the execution params")
+
+    params = get_user_params(job_data, "Live_Analysis")
 
     stackName = params['stackName']
     region = params['region']
     aws_account = params['awsAccount']
-    bundleId = params['bundelId']
+    bundleId = params['bundleId']
     excludedTypes = ['LogGroups,IamCredentialReport']
 
 
@@ -280,7 +282,7 @@ def lambda_handler(event, context):
                           excludedTypes=excludedTypes, maxTimeoutMinutes=10,
                           d9keyId=KEY_DECRYPTED, d9secret=SECRET_DECRYPTED)
 
-    t2_syn_and_wait = datetime.datetime.utcnow()
+    t2_syn_and_wait = datetime.utcnow()
     print("\n" + "*" * 50 + "\nRun \"Sync And Wait\" Script ran for {} seconds\n".format(
         (t0_syn_and_wait - t2_syn_and_wait).total_seconds()) + "*" * 50 + "\n")
 

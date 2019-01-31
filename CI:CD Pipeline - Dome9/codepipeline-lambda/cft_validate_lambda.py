@@ -221,7 +221,7 @@ def lambda_handler(event, context):
         job_data = event['CodePipeline.job']['data']
 
         # Extract the params
-        params = get_user_params(job_data)
+        params = get_user_params(job_data, "Static_Analysis")
 
         # Get the list of artifacts passed to the function
         input_artifacts = job_data['inputArtifacts']
