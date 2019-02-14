@@ -11,7 +11,7 @@ zip -r ../my-app-cft.zip *
 popd
 
 if [ -z "$PROFILE" ]; then
-    aws s3 cp 'my-app-cft.zip'  s3://idan-dome9-cicd-pipeline/
+    aws s3 cp 'my-app-cft.zip'  s3://<bucket_name>/
 else
-    aws s3 cp --profile $PROFILE 'my-app-cft.zip'  s3://idan-dome9-cicd-pipeline/
+    aws s3 cp --profile $PROFILE 'my-app-cft.zip'  s3://<bucket_name>/
 fi
