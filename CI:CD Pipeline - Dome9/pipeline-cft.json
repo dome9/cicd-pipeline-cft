@@ -31,7 +31,7 @@
       "Type": "String"
     },
     "TemplateFilePath": {
-      "Default": "my-app-cft/myapp.json",
+      "Default": "myapp.json",
       "Description": "The file path of the template",
       "Type": "String"
     },
@@ -41,7 +41,7 @@
       "Type": "String"
     },
     "TestStackConfig": {
-      "Default": "my-app-cft/test-stack-configuration.json",
+      "Default": "test-stack-configuration.json",
       "Description": "The configuration file name for the test stack",
       "Type": "String"
     },
@@ -51,7 +51,7 @@
       "Type": "String"
     },
     "ProdStackConfig": {
-      "Default": "my-app-cft/prod-stack-configuration.json",
+      "Default": "prod-stack-configuration.json",
       "Description": "The configuration file name for the production  stack",
       "Type": "String"
     },

@@ -130,6 +130,7 @@ def delete_stack(stack):
     Throws:
         Exception: Any exception thrown by .create_stack()
     """
+    print("delete_stack function was triggered - going to delete stack - {}", stack)
     cf.delete_stack(StackName=stack)
 
 
@@ -228,7 +229,8 @@ def lambda_handler(event, context):
         region = params['region']
         aws_account = params['awsAccount']
         bundleId = params['bundleId']
-        excludedTypes = ['LogGroups,IamCredentialReport']
+        excludedTypes = ['LogGroups,IamCredentialReport', 'ConfigurationRecorders', 'Nacl', 'Subnet', 'Volumes', 'Vpc',
+                         'AwsElastiCache', 'DbInstance', 'RedshiftCluster']
 
         print("stackName: " + stackName)
         print("Going to execute Sync and wait API call")

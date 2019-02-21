@@ -81,6 +81,7 @@ def run_assessment(bundle_id, aws_cloud_account, d9_secret, d9_key, region, d9_c
         print('\nResolving Dome9 account id from aws account number: {}'.format(aws_cloud_account))
         r = requests.get('https://api.dome9.com/v2/cloudaccounts/{}'.format(aws_cloud_account),
                          auth=(d9_key, d9_secret))
+        r.raise_for_status()
         d9_id = r.json()['id']
         print('Found it. Dome9 cloud account Id={}'.format(d9_id))
 
@@ -98,6 +99,7 @@ def run_assessment(bundle_id, aws_cloud_account, d9_secret, d9_key, region, d9_c
 
     r = requests.post('https://api.dome9.com/v2/assessment/bundleV2', data=json.dumps(body), headers=headers,
                       auth=(d9_key, d9_secret))
+    r.raise_for_status()
     tn = datetime.datetime.utcnow()
 
     total_sec = total_sec + (tn - t0).total_seconds()
@@ -118,7 +120,7 @@ def print_map(failed_Test_relevant_entites_map):
             print(entity)
 
 
-def analyze_assessment_result(assessment_result, aws_cloud_account, region, stack_name, aws_profile=''):
+def analyze_assessment_result(assessment_result, aws_cloud_account, region, stack_name, aws_profile='', print_flag=True):
     global t0, total_sec
     t0 = datetime.datetime.utcnow()
     # resource_physical_ids - its a list of the resource ids that related to the stack_name and supported by Dome9
@@ -164,8 +166,8 @@ def analyze_assessment_result(assessment_result, aws_cloud_account, region, stac
 
         if len(relevant_failed_entities) > 0:
             failed_test_relevant_entities_map[failed_test] = relevant_failed_entities
-
-    print_map(failed_test_relevant_entities_map)
+    if print_flag:
+        print_map(failed_test_relevant_entities_map)
 
     tn = datetime.datetime.utcnow()
     total_sec = total_sec + (tn - t0).total_seconds()
@@ -185,7 +187,9 @@ def prepare_results_to_analyze(aws_cloud_account, region, stack_name, aws_profil
     # sanity test - verify that we have credentials for the relevant AWS account numnber
     sts = aws_session.client('sts')
     account_id = sts.get_caller_identity()["Account"]
-    if (aws_cloud_account != account_id):
+    if (str(aws_cloud_account) != str(account_id)):
+        print(aws_cloud_account)
+        print(account_id)
         print(
             'Error - the provided awsAccNumber ({}) is not tied to the AWS credentials of this script ({}) consider '
             'providing a different "profile" argument'.format(
