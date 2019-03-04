@@ -71,7 +71,7 @@ class FailedTest:
 
 
 def run_assessment(bundle_id, aws_cloud_account, d9_secret, d9_key, region, d9_cloud_account=""):
-    global t0,total_sec
+    global t0, total_sec
     t0 = datetime.datetime.utcnow()
     d9region = region.replace('-', '_')  # dome9 identifies regions with underscores
     print("\n" + "*" * 50 + "\nStarting Assessment Execution\n" + "*" * 50)

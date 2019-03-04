@@ -243,7 +243,7 @@ def lambda_handler(event, context):
 
         t2_syn_and_wait = datetime.utcnow()
         print("\n" + "*" * 50 + "\nRun \"Sync And Wait\" Script ran for {} seconds\n".format(
-            (t0_syn_and_wait - t2_syn_and_wait).total_seconds()) + "*" * 50 + "\n")
+            (t2_syn_and_wait - t0_syn_and_wait).total_seconds()) + "*" * 50 + "\n")
 
         if (st.isAllCompleted()):
             print("\n*** All supported services were successfully updated (fetched) ***\n")
@@ -260,7 +260,7 @@ def lambda_handler(event, context):
             tn_run_assessment = datetime.utcnow()
 
             print("\n" + "*" * 50 + "\nRun and analyzing Assessment Script ran for {} seconds\n".format(
-                (t0_run_assessment - tn_run_assessment).total_seconds()) + "*" * 50 + "\n")
+                (tn_run_assessment - t0_run_assessment).total_seconds()) + "*" * 50 + "\n")
 
             if len(res) == 0:
                 put_job_success(job_id,
