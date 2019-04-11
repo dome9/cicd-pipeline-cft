@@ -9,8 +9,9 @@ import argparse
 import datetime
 import os
 
-t0_run_assesment = datetime.datetime.utcnow()
+t0 = datetime.datetime.utcnow()
 total_sec = 0
+APIVersion=1.0
 
 
 class FailedEntity:
@@ -71,9 +72,10 @@ class FailedTest:
 
 
 def run_assessment(bundle_id, aws_cloud_account, d9_secret, d9_key, region, d9_cloud_account=""):
-    global t0_run_assesment, total_sec
-    t0_run_assesment = datetime.datetime.utcnow()
+    global t0,total_sec
+    t0 = datetime.datetime.utcnow()
     d9region = region.replace('-', '_')  # dome9 identifies regions with underscores
+    print("\n Dome9 Run Assessment Interface Version - {}".format(APIVersion))
     print("\n" + "*" * 50 + "\nStarting Assessment Execution\n" + "*" * 50)
     d9_id = ""
     # Need to get the Dome9 cloud account representation
@@ -102,9 +104,9 @@ def run_assessment(bundle_id, aws_cloud_account, d9_secret, d9_key, region, d9_c
     r.raise_for_status()
     tn = datetime.datetime.utcnow()
 
-    total_sec = total_sec + (tn - t0_run_assesment).total_seconds()
+    total_sec = total_sec + (tn - t0).total_seconds()
 
-    print("\n" + "*" * 50 + "\nAssessment Execution Done in {} seconds \n".format((tn - t0_run_assesment).total_seconds()) + "*" * 50)
+    print("\n" + "*" * 50 + "\nAssessment Execution Done in {} seconds \n".format((tn - t0).total_seconds()) + "*" * 50)
 
     return r.json()
 
@@ -121,8 +123,8 @@ def print_map(failed_Test_relevant_entites_map):
 
 
 def analyze_assessment_result(assessment_result, aws_cloud_account, region, stack_name, aws_profile='', print_flag=True):
-    global t0_run_assesment, total_sec
-    t0_run_assesment = datetime.datetime.utcnow()
+    global t0, total_sec
+    t0 = datetime.datetime.utcnow()
     # resource_physical_ids - its a list of the resource ids that related to the stack_name and supported by Dome9
     # The ids are from the cfn describe and based on the PhysicalResourceId field list_of_failed_entities - It's a
     # list of FailedEntity that will contain for each failed entities in the assessment result it's id,arn,name,tags
@@ -170,9 +172,9 @@ def analyze_assessment_result(assessment_result, aws_cloud_account, region, stac
         print_map(failed_test_relevant_entities_map)
 
     tn = datetime.datetime.utcnow()
-    total_sec = total_sec + (tn - t0_run_assesment).total_seconds()
+    total_sec = total_sec + (tn - t0).total_seconds()
     print("\n" + "*" * 50 + "\nAssessment Analyzing Was Done in {} seconds\n".format(
-        (tn - t0_run_assesment).total_seconds()) + "*" * 50 + "\n")
+        (tn - t0).total_seconds()) + "*" * 50 + "\n")
 
     return failed_test_relevant_entities_map
 
@@ -278,7 +280,7 @@ def main():
     parser.add_argument('--maxTimeoutMinutes', required=False, type=int, default=10)
     args = parser.parse_args()
     # Take start time
-    print("\n\n{}\nStarting...\n{}\n\nSetting now (UTC {}) ".format(80 * '*', 80 * '*', t0_run_assesment))
+    print("\n\n{}\nStarting...\n{}\n\nSetting now (UTC {}) ".format(80 * '*', 80 * '*', t0))
 
     result = run_assessment(bundle_id=args.bundleId, aws_cloud_account=args.awsAccountNumber,
                             d9_secret=args.d9secret,

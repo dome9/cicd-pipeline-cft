@@ -12,11 +12,16 @@ import argparse
 import os
 
 
+APIVersion=1.0
+
+
 def d9_sync_and_wait(d9keyId, d9secret, awsAccNumber, region, stackName, excludedTypes, maxTimeoutMinutes=10,
                      awsprofile=''):
     # Take start time
-    t0 = datetime.datetime.utcnow()
-    print("\n\n{}\nStarting...\n{}\n\nSetting now (UTC {}) as base time".format(80 * '*', 80 * '*', t0))
+    t0_sync_wait = datetime.datetime.utcnow()
+    print("\n Dome9 Sync And Wait  Interface Version - {}".format(APIVersion))
+    print("\n\n{}\nStarting...\n{}\n\nSetting now (UTC {}) as base time".format(80 * '*', 80 * '*', t0_sync_wait))
+    print("\n Max time for this execution is - {} minutes".format(maxTimeoutMinutes))
     (d9_supported_cfn_types, d9_non_supported_cfn, relevant_dome9_types) = get_relevant_stack_types(awsAccNumber,
                                                                                                     region, stackName,
                                                                                                     excludedTypes,
@@ -34,7 +39,7 @@ def d9_sync_and_wait(d9keyId, d9secret, awsAccNumber, region, stackName, exclude
     # Query Fetch status api, loop until ready
     while True:
         curr_api_status = query_fetch_status(awsAccNumber, region, relevant_dome9_types, d9keyId, d9secret)
-        result = analyze_entities_update_status(relevant_dome9_types, curr_api_status, t0)
+        result = analyze_entities_update_status(relevant_dome9_types, curr_api_status, t0_sync_wait)
 
 
         curr_num_of_completed = result.getNumberofCompleted()
@@ -45,7 +50,7 @@ def d9_sync_and_wait(d9keyId, d9secret, awsAccNumber, region, stackName, exclude
             print('Stopping script, num of completed fetch was reduced, was - {} and now it is - {}'.format(
                 num_of_completed, curr_num_of_completed))
             print('Dump of the Dome9 fetch status difference - ')
-            print('Fetch start time - {}'.format(t0))
+            print('Fetch start time - {}'.format(t0_sync_wait))
             print('Previous Status - ')
             print(json.dumps(api_status, indent=4, sort_keys=True))
             print('')
@@ -61,7 +66,7 @@ def d9_sync_and_wait(d9keyId, d9secret, awsAccNumber, region, stackName, exclude
         if (result.isAllCompleted()):
             break
         tNow = datetime.datetime.utcnow()
-        elapsed = (tNow - t0).total_seconds()
+        elapsed = (tNow - t0_sync_wait).total_seconds()
         if elapsed > maxTimeoutMinutes * 60:
             print('\nStopping script, passed maxTimeoutMinutes ({})'.format(maxTimeoutMinutes))
             break
@@ -76,7 +81,7 @@ def d9_sync_and_wait(d9keyId, d9secret, awsAccNumber, region, stackName, exclude
     return result
 
 
-def analyze_entities_update_status(relevant_dome9_types, api_status, t0):
+def analyze_entities_update_status(relevant_dome9_types, api_status, t0_sync_wait):
     retObj = StatusResult()
     for d9type in relevant_dome9_types:
         filteredList = [elem for elem in api_status if elem[
@@ -88,7 +93,7 @@ def analyze_entities_update_status(relevant_dome9_types, api_status, t0):
         else:
             tEntity = dateutil.parser.parse(ser_status['lastSuccessfulRun']).replace(
                 tzinfo=None)  # sadly datetime.datetime.utcnow() is not timzeone aware so I'm removing the TZ so we can compare them
-            if tEntity > t0:
+            if tEntity > t0_sync_wait:
                 retObj.completed.append(d9type)
             else:
                 retObj.pending.append(d9type)

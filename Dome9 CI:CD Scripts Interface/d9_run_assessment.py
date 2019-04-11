@@ -11,6 +11,7 @@ import os
 
 t0 = datetime.datetime.utcnow()
 total_sec = 0
+APIVersion=1.0
 
 
 class FailedEntity:
@@ -74,6 +75,7 @@ def run_assessment(bundle_id, aws_cloud_account, d9_secret, d9_key, region, d9_c
     global t0,total_sec
     t0 = datetime.datetime.utcnow()
     d9region = region.replace('-', '_')  # dome9 identifies regions with underscores
+    print("\n Dome9 Run Assessment Interface Version - {}".format(APIVersion))
     print("\n" + "*" * 50 + "\nStarting Assessment Execution\n" + "*" * 50)
     d9_id = ""
     # Need to get the Dome9 cloud account representation
