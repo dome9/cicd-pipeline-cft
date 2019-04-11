@@ -16,6 +16,7 @@ def d9_sync_and_wait(d9keyId, d9secret, awsAccNumber, region, stackName, exclude
     # Take start time
     t0_sync_wait = datetime.datetime.utcnow()
     print("\n\n{}\nStarting...\n{}\n\nSetting now (UTC {}) as base time".format(80 * '*', 80 * '*', t0_sync_wait))
+    print("\n Max time for this execution is - {} minutes".format(maxTimeoutMinutes))
     (d9_supported_cfn_types, d9_non_supported_cfn, relevant_dome9_types) = get_relevant_stack_types(awsAccNumber,
                                                                                                     region, stackName,
                                                                                                     excludedTypes,
