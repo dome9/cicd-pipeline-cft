@@ -11,7 +11,7 @@ import os
 
 t0 = datetime.datetime.utcnow()
 total_sec = 0
-APIVersion=1.0
+APIVersion=1.01
 
 
 class FailedEntity:
@@ -71,8 +71,10 @@ class FailedTest:
         return rep
 
 
-def run_assessment(bundle_id, aws_cloud_account, d9_secret, d9_key, region, d9_cloud_account=""):
+def run_assessment(bundle_id, aws_cloud_account, d9_secret, d9_key, region, d9_cloud_account="", maxTimeoutMinutes=10):
+
     global t0,total_sec
+    t0_run_assessment = datetime.datetime.utcnow()
     t0 = datetime.datetime.utcnow()
     d9region = region.replace('-', '_')  # dome9 identifies regions with underscores
     print("\n Dome9 Run Assessment Interface Version - {}".format(APIVersion))
@@ -104,9 +106,13 @@ def run_assessment(bundle_id, aws_cloud_account, d9_secret, d9_key, region, d9_c
     r.raise_for_status()
     tn = datetime.datetime.utcnow()
 
+    #check that max timeout was not reached
+    if checkThatMaxTimeWasNotReached(t0, maxTimeoutMinutes):
+        return
+
     total_sec = total_sec + (tn - t0).total_seconds()
 
-    print("\n" + "*" * 50 + "\nAssessment Execution Done in {} seconds \n".format((tn - t0).total_seconds()) + "*" * 50)
+    print("\n" + "*" * 50 + "\nAssessment Execution Done in {} seconds \n".format((tn - t0_run_assessment).total_seconds()) + "*" * 50)
 
     return r.json()
 
@@ -122,9 +128,19 @@ def print_map(failed_Test_relevant_entites_map):
             print(entity)
 
 
-def analyze_assessment_result(assessment_result, aws_cloud_account, region, stack_name, aws_profile='', print_flag=True):
+def checkThatMaxTimeWasNotReached (t0, maxTimeoutMinutes):
+    tNow = datetime.datetime.utcnow()
+    elapsed = (tNow - t0).total_seconds()
+    print('\nCurrent run time of d9 assessment execution and analyzing is - {} Seconds\n'.format(elapsed))
+    if elapsed > maxTimeoutMinutes * 60:
+        print('\nStopping script, passed maxTimeoutMinutes ({})'.format(maxTimeoutMinutes))
+        return True
+    return False
+
+def analyze_assessment_result(assessment_result, aws_cloud_account, region, stack_name, aws_profile='', print_flag=True, maxTimeoutMinutes=10):
     global t0, total_sec
-    t0 = datetime.datetime.utcnow()
+    t0_run_assessment_analyze = datetime.datetime.utcnow()
+
     # resource_physical_ids - its a list of the resource ids that related to the stack_name and supported by Dome9
     # The ids are from the cfn describe and based on the PhysicalResourceId field list_of_failed_entities - It's a
     # list of FailedEntity that will contain for each failed entities in the assessment result it's id,arn,name,tags
@@ -171,10 +187,13 @@ def analyze_assessment_result(assessment_result, aws_cloud_account, region, stac
     if print_flag:
         print_map(failed_test_relevant_entities_map)
 
+    #check that max timeout was not reached
+    if checkThatMaxTimeWasNotReached(t0, maxTimeoutMinutes):
+        return
+
     tn = datetime.datetime.utcnow()
-    total_sec = total_sec + (tn - t0).total_seconds()
-    print("\n" + "*" * 50 + "\nAssessment Analyzing Was Done in {} seconds\n".format(
-        (tn - t0).total_seconds()) + "*" * 50 + "\n")
+    total_sec = total_sec + (tn - t0_run_assessment_analyze).total_seconds()
+    print("\n" + "*" * 50 + "\nAssessment Analyzing Was Done in {} seconds\n".format((tn - t0_run_assessment_analyze).total_seconds()) + "*" * 50 + "\n")
 
     return failed_test_relevant_entities_map
 
@@ -284,10 +303,10 @@ def main():
 
     result = run_assessment(bundle_id=args.bundleId, aws_cloud_account=args.awsAccountNumber,
                             d9_secret=args.d9secret,
-                            d9_key=args.d9keyId, region=args.region)
+                            d9_key=args.d9keyId, region=args.region, maxTimeoutMinutes=args.maxTimeoutMinutes)
     res = analyze_assessment_result(assessment_result=result, aws_cloud_account=args.awsAccountNumber,
                                     region=args.region,
-                                    stack_name=args.stackName, aws_profile=args.awsCliProfile)
+                                    stack_name=args.stackName, aws_profile=args.awsCliProfile, maxTimeoutMinutes=args.maxTimeoutMinutes)
 
     print("\n" + "*" * 50 + "\nRun and analyzing Assessment Script ran for {} seconds\n".format(
         total_sec) + "*" * 50 + "\n")

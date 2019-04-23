@@ -85,7 +85,7 @@ def d9_sync_and_wait(d9keyId, d9secret, awsAccNumber, region, stackName, exclude
 def checkThatMaxTimeWasNotReached (t0_sync_wait, maxTimeoutMinutes):
     tNow = datetime.datetime.utcnow()
     elapsed = (tNow - t0_sync_wait).total_seconds()
-    print('\nd9_sync_and_wait ran for - {} Seconds\n'.format(elapsed))
+    print('\nCurrent d9_sync_and_wait run time is  - {} Seconds\n'.format(elapsed))
     if elapsed > maxTimeoutMinutes * 60:
         print('\nStopping script, passed maxTimeoutMinutes ({})'.format(maxTimeoutMinutes))
         return True
