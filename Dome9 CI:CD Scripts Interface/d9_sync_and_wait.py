@@ -35,15 +35,21 @@ def d9_sync_and_wait(d9keyId, d9secret, awsAccNumber, region, stackName, exclude
     num_of_completed = 0
     api_status = {}
 
-
     # Query Fetch status api, loop until ready
     while True:
+
+        # First check that max timeout was not reached
+        tNow = datetime.datetime.utcnow()
+        elapsed = (tNow - t0_sync_wait).total_seconds()
+        print('\nd9_sync_and_wait ran for - {} Seconds\n'.format(elapsed))
+        if elapsed > maxTimeoutMinutes * 60:
+            print('\nStopping script, passed maxTimeoutMinutes ({})'.format(maxTimeoutMinutes))
+            break
+
         curr_api_status = query_fetch_status(awsAccNumber, region, relevant_dome9_types, d9keyId, d9secret)
         result = analyze_entities_update_status(relevant_dome9_types, curr_api_status, t0_sync_wait)
 
-
         curr_num_of_completed = result.getNumberofCompleted()
-
 
         # Case that the number of completed fetch was reduced from some reason
         if curr_num_of_completed < num_of_completed:
@@ -63,12 +69,9 @@ def d9_sync_and_wait(d9keyId, d9secret, awsAccNumber, region, stackName, exclude
         api_status = curr_api_status
 
         result.print_me()
+
+
         if (result.isAllCompleted()):
-            break
-        tNow = datetime.datetime.utcnow()
-        elapsed = (tNow - t0_sync_wait).total_seconds()
-        if elapsed > maxTimeoutMinutes * 60:
-            print('\nStopping script, passed maxTimeoutMinutes ({})'.format(maxTimeoutMinutes))
             break
         else:
             print('\nNot done yet. Will sleep a bit and poll the status again...')
