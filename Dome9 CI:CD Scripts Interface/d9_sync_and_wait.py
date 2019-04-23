@@ -39,14 +39,14 @@ def d9_sync_and_wait(d9keyId, d9secret, awsAccNumber, region, stackName, exclude
     while True:
 
         # First check that max timeout was not reached
-        tNow = datetime.datetime.utcnow()
-        elapsed = (tNow - t0_sync_wait).total_seconds()
-        print('\nd9_sync_and_wait ran for - {} Seconds\n'.format(elapsed))
-        if elapsed > maxTimeoutMinutes * 60:
-            print('\nStopping script, passed maxTimeoutMinutes ({})'.format(maxTimeoutMinutes))
+        if checkThatMaxTimeWasNotReached(t0_sync_wait,maxTimeoutMinutes) :
             break
 
         curr_api_status = query_fetch_status(awsAccNumber, region, relevant_dome9_types, d9keyId, d9secret)
+
+        if checkThatMaxTimeWasNotReached(t0_sync_wait, maxTimeoutMinutes):
+            break
+
         result = analyze_entities_update_status(relevant_dome9_types, curr_api_status, t0_sync_wait)
 
         curr_num_of_completed = result.getNumberofCompleted()
@@ -69,8 +69,6 @@ def d9_sync_and_wait(d9keyId, d9secret, awsAccNumber, region, stackName, exclude
         api_status = curr_api_status
 
         result.print_me()
-
-
         if (result.isAllCompleted()):
             break
         else:
@@ -82,6 +80,18 @@ def d9_sync_and_wait(d9keyId, d9secret, awsAccNumber, region, stackName, exclude
     # transform and return data set
     result.nonSupportedCFTTypes = d9_non_supported_cfn
     return result
+
+
+def checkThatMaxTimeWasNotReached (t0_sync_wait, maxTimeoutMinutes):
+    tNow = datetime.datetime.utcnow()
+    elapsed = (tNow - t0_sync_wait).total_seconds()
+    print('\nd9_sync_and_wait ran for - {} Seconds\n'.format(elapsed))
+    if elapsed > maxTimeoutMinutes * 60:
+        print('\nStopping script, passed maxTimeoutMinutes ({})'.format(maxTimeoutMinutes))
+        return True
+    return False
+
+
 
 
 def analyze_entities_update_status(relevant_dome9_types, api_status, t0_sync_wait):
