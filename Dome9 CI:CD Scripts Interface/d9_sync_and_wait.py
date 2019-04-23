@@ -12,7 +12,7 @@ import argparse
 import os
 
 
-APIVersion=1.0
+APIVersion=1.01
 
 
 def d9_sync_and_wait(d9keyId, d9secret, awsAccNumber, region, stackName, excludedTypes, maxTimeoutMinutes=10,
