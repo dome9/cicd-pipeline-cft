@@ -14,6 +14,11 @@ pip install boto3
 pip install requests
 ```
 
+#### Support python versions
+- 2.7.1
+- 3.6.5
+- 3.7.1
+
 ## Sync And Wait Step 
 These script demonstrate how use the SyncNow and EntityFetchStatus APIs to integrate Dome9 Compliance Engine assessments after a new test CFT stack was deployed as part of a CI/CD pipeline. 
 
