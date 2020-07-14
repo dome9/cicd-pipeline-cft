@@ -8,10 +8,12 @@ import csv
 import argparse
 import datetime
 import os
+import logging
 
 t0 = datetime.datetime.utcnow()
 total_sec = 0
-APIVersion=1.01
+APIVersion = 2.0
+SCRIPT='RunAssessment'
 
 
 class FailedEntity:
@@ -39,9 +41,9 @@ class FailedEntity:
 
     def __str__(self):
         rep = "\t\t\tEntity:\n"
-        rep += ''.join(filter(None, ["\t\t\ttype: ", self.type, "\n"]))
-        rep += ''.join(filter(None, ["\t\t\tname: ", self.name, "\n"]))
-        rep += ''.join(filter(None, ["\t\t\tid: ", self.entity_id, "\n"]))
+        rep += ''.join(filter(None, ["\t\t\t\ttype: ", self.type, "\n"]))
+        rep += ''.join(filter(None, ["\t\t\t\tname: ", self.name, "\n"]))
+        rep += ''.join(filter(None, ["\t\t\t\tid: ", self.entity_id, "\n"]))
         # rep += ''.join(filter(None, ["\t\t\tarn: ", self.arn, "\n"]))
 
         return rep
@@ -63,7 +65,7 @@ class FailedTest:
         self.rule_severity = rule_severity
 
     def __str__(self):
-        rep = "\tTest:\n"
+        rep = "\n\tTest:\n"
         rep += "\t\trule name: " + self.rule_name + "\n"
         rep += "\t\tseverity: " + self.rule_severity + "\n"
         # rep += "\t\tdescription: " + self.rule_desc + "\n"
@@ -71,34 +73,44 @@ class FailedTest:
         return rep
 
 
-def run_assessment(bundle_id, aws_cloud_account, d9_secret, d9_key, region, d9_cloud_account="", maxTimeoutMinutes=10):
+def run_assessment(bundle_id, d9_secret, d9_key, region, d9_cloud_account=None, maxTimeoutMinutes=10):
+    """
+    This is the actual function that execute the assessment and gather the results
+    :param bundle_id: dome9 bundle id to execute (according to version 1.0 should be taken from the Dome9 Console)
+    :param d9_secret: Dome9 API secret
+    :param d9_key:  Dome9 API key
+    :param region: the region to run the assessment on
+    :param d9_cloud_account:  the cloud account id as it represented at Dome9 system (should be taken from the console)
+    :param maxTimeoutMinutes: the maximum time to wait for the execution to finish
+    :return:
+    """
 
-    global t0,total_sec
+    global t0, total_sec
+
     t0_run_assessment = datetime.datetime.utcnow()
     t0 = datetime.datetime.utcnow()
-    d9region = region.replace('-', '_')  # dome9 identifies regions with underscores
-    print("\n Dome9 Run Assessment Interface Version - {}".format(APIVersion))
-    print("\n" + "*" * 50 + "\nStarting Assessment Execution\n" + "*" * 50)
-    d9_id = ""
-    # Need to get the Dome9 cloud account representation
-    if d9_cloud_account == "":
-        print('\nResolving Dome9 account id from aws account number: {}'.format(aws_cloud_account))
-        r = requests.get('https://api.dome9.com/v2/cloudaccounts/{}'.format(aws_cloud_account),
-                         auth=(d9_key, d9_secret))
-        r.raise_for_status()
-        d9_id = r.json()['id']
-        print('Found it. Dome9 cloud account Id={}'.format(d9_id))
+
+    body = {
+        "Id": bundle_id,
+        "CloudAccountId": d9_cloud_account,
+        "cloudAccountType": 1,
+        "IsTemplate": False
+
+    }
+
+    logging.debug(f"{SCRIPT} - API call body - {body}")
+
+    if region:
+        d9region = region.replace('-', '_')  # dome9 identifies regions with underscores
+        body["region"] = d9region
+
+    logging.info(f"{SCRIPT} - Dome9 Run Assessment Interface Version - {APIVersion}")
+
+    logging.info(f"{SCRIPT} -  Starting Assessment Execution")
 
     headers = {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
-    }
-
-    body = {
-        "id": bundle_id,
-        "cloudAccountId": d9_id,
-        "region": d9region,
-        "cloudAccountType": "Aws"
     }
 
     r = requests.post('https://api.dome9.com/v2/assessment/bundleV2', data=json.dumps(body), headers=headers,
@@ -106,149 +118,174 @@ def run_assessment(bundle_id, aws_cloud_account, d9_secret, d9_key, region, d9_c
     r.raise_for_status()
     tn = datetime.datetime.utcnow()
 
-    #check that max timeout was not reached
-    if checkThatMaxTimeWasNotReached(t0, maxTimeoutMinutes):
-        return
+    # check that max timeout was not reached
+    if __checkThatMaxTimeWasNotReached(t0, maxTimeoutMinutes):
+        return None
 
     total_sec = total_sec + (tn - t0).total_seconds()
 
-    print("\n" + "*" * 50 + "\nAssessment Execution Done in {} seconds \n".format((tn - t0_run_assessment).total_seconds()) + "*" * 50)
+    logging.info(f"{SCRIPT} -  Assessment Execution Done in {(tn - t0_run_assessment).total_seconds()} seconds \n")
 
     return r.json()
 
 
 # Analyze the assessment execution result and return the assets id and types for all the assets the fail in
 # each rule execution
-
-def print_map(failed_Test_relevant_entites_map):
+def __print_map(failed_Test_relevant_entites_map):
+    str = ""
     for test in failed_Test_relevant_entites_map:
-        print(test)
-        print("\n\t\tFailed Entities:\n")
+        str += test.__str__() + "\n\t\tFailed Entities:\n"
         for entity in failed_Test_relevant_entites_map[test]:
-            print(entity)
+            str += entity.__str__()
+    return  str
 
 
-def checkThatMaxTimeWasNotReached (t0, maxTimeoutMinutes):
+def __checkThatMaxTimeWasNotReached(t0, maxTimeoutMinutes):
     tNow = datetime.datetime.utcnow()
     elapsed = (tNow - t0).total_seconds()
-    print('\nCurrent run time of d9 assessment execution and analyzing is - {} Seconds\n'.format(elapsed))
+    logging.info(f'{SCRIPT} -  Current run time of d9 assessment execution and analyzing is - {elapsed} Seconds')
     if elapsed > maxTimeoutMinutes * 60:
-        print('\nStopping script, passed maxTimeoutMinutes ({})'.format(maxTimeoutMinutes))
+        logging.error(f'{SCRIPT} -  Stopping script, passed maxTimeoutMinutes ({maxTimeoutMinutes})')
         return True
     return False
 
-def analyze_assessment_result(assessment_result, aws_cloud_account, region, stack_name, aws_profile='', print_flag=True, maxTimeoutMinutes=10):
+
+def analyze_assessment_result(assessment_result,
+                              region=None,
+                              stack_name=None,
+                              aws_profile=None,
+                              maxTimeoutMinutes=10,
+                              minimal_sevirity_to_fail=None):
     global t0, total_sec
     t0_run_assessment_analyze = datetime.datetime.utcnow()
 
     # resource_physical_ids - its a list of the resource ids that related to the stack_name and supported by Dome9
     # The ids are from the cfn describe and based on the PhysicalResourceId field list_of_failed_entities - It's a
     # list of FailedEntity that will contain for each failed entities in the assessment result it's id,arn,name,tags
-    print("\n" + "*" * 50 + "\nStarting To Analyze Assessment Result\n" + "*" * 50 + "\n")
-    (resource_physical_ids, filed_tests_map) = prepare_results_to_analyze(aws_cloud_account, region, stack_name,
-                                                                          aws_profile, assessment_result)
+    logging.info(f"{SCRIPT} -  Starting To Analyze Assessment Result")
+    (resource_physical_ids, failed_tests_map) = __prepare_results_to_analyze(region=region,
+                                                                            stack_name=stack_name,
 
-    print("\nBundle - {}".format(assessment_result["request"]["name"]))
-    print("\nNumber of total failed tests: {}\n".format(len(filed_tests_map)))
-    print("\nFailed Tests that are relevant to the Stack - {}:\n".format(stack_name))
+                                                                            aws_profile=aws_profile,
+                                                                            assessment_result=assessment_result)
 
+    logging.info(f'{SCRIPT} -  Bundle - {assessment_result["request"]["name"]}')
+    logging.info(f"{SCRIPT} -  Number of total failed tests: {len(failed_tests_map)}")
     # add statistics about the assessment result and print the stuck name
-
-
     failed_test_relevant_entities_map = dict()
-    for failed_test in filed_tests_map:
-        fallback = True
-        relevant_failed_entities = list()
-        for failed_entity in filed_tests_map[failed_test]:
-            # 1st check with the tags "key": "aws:cloudformation:stack-name" equals to our stack_name
-            if failed_entity.tags:
-                for tag in failed_entity.tags:
-                    if tag["key"] == "aws:cloudformation:stack-name" and tag["value"] == stack_name:
+
+    # get only the failed tests that contain entities from the deployed stack
+    if stack_name is not None:
+        logging.info(f"{SCRIPT} -  Failed Tests that are relevant to the Stack - {stack_name}:")
+        for failed_test in failed_tests_map:
+            fallback = True
+            relevant_failed_entities = list()
+            for failed_entity in failed_tests_map[failed_test]:
+                # 1st check with the tags "key": "aws:cloudformation:stack-name" equals to our stack_name
+                if failed_entity.tags:
+                    for tag in failed_entity.tags:
+                        if tag["key"] == "aws:cloudformation:stack-name" and tag["value"] == stack_name:
+                            relevant_failed_entities.append(failed_entity)
+                            fallback = False
+                # 2nd if the entity doesn't have tags fall back to id
+                if fallback and failed_entity.entity_id:
+                    if failed_entity.entity_id in resource_physical_ids:
                         relevant_failed_entities.append(failed_entity)
                         fallback = False
-            # 2nd if the entity doesn't have tags fall back to id
-            if fallback and failed_entity.entity_id:
-                if failed_entity.entity_id in resource_physical_ids:
-                    relevant_failed_entities.append(failed_entity)
-                    fallback = False
-            # 3rd fall back to name
-            if fallback and failed_entity.name:
-                if failed_entity.name in resource_physical_ids:
-                    relevant_failed_entities.append(failed_entity)
-                    fallback = False
-            # 4th fall back to arn
-            if fallback and failed_entity.arn:
-                if failed_entity.arn in resource_physical_ids:
-                    relevant_failed_entities.append(failed_entity)
-                    fallback = False
+                # 3rd fall back to name
+                if fallback and failed_entity.name:
+                    if failed_entity.name in resource_physical_ids:
+                        relevant_failed_entities.append(failed_entity)
+                        fallback = False
+                # 4th fall back to arn
+                if fallback and failed_entity.arn:
+                    if failed_entity.arn in resource_physical_ids:
+                        relevant_failed_entities.append(failed_entity)
+                        fallback = False
 
-        if len(relevant_failed_entities) > 0:
-            failed_test_relevant_entities_map[failed_test] = relevant_failed_entities
-    if print_flag:
-        print_map(failed_test_relevant_entities_map)
+            if len(relevant_failed_entities) > 0:
+                failed_test_relevant_entities_map[failed_test] = relevant_failed_entities
+    else:
+        failed_test_relevant_entities_map = failed_tests_map
 
-    #check that max timeout was not reached
-    if checkThatMaxTimeWasNotReached(t0, maxTimeoutMinutes):
+    # In case that minimal severity level was reached
+    if minimal_sevirity_to_fail:
+        if any(test.rule_severity == minimal_sevirity_to_fail for test in failed_tests_map):
+            logging.info("Assessment was failed!!")
+            logging.info(f"Minimal Severity level{minimal_sevirity_to_fail} reached")
+            logging.error(__print_map(failed_test_relevant_entities_map))
+            exit(2)
+
+    logging.info(__print_map(failed_test_relevant_entities_map))
+
+    # check that max timeout was not reached
+    if __checkThatMaxTimeWasNotReached(t0, maxTimeoutMinutes):
         return
 
     tn = datetime.datetime.utcnow()
     total_sec = total_sec + (tn - t0_run_assessment_analyze).total_seconds()
-    print("\n" + "*" * 50 + "\nAssessment Analyzing Was Done in {} seconds\n".format((tn - t0_run_assessment_analyze).total_seconds()) + "*" * 50 + "\n")
+    logging.info(f"{SCRIPT} -  Assessment Analyzing Was Done in {(tn - t0_run_assessment_analyze).total_seconds()} seconds")
 
     return failed_test_relevant_entities_map
 
 
-def prepare_results_to_analyze(aws_cloud_account, region, stack_name, aws_profile, assessment_result):
-    # allow to specify specific profile, fallback to standard boto credentials lookup strategy
-    # https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html
+def __prepare_results_to_analyze(assessment_result, region=None, stack_name=None, aws_profile=None):
+    """
+    This method prepare the data model of the d9 assessment execution
+
+    :param assessment_result: The result of the RunAssessment API
+    :param region: the aws region where the Stack was deployed in case of assessment execution over specific Stack
+    :param stack_name: the AWS stack name in case of assessment execution over specific Stack
+    :param aws_profile: the AWS profiel that will use as cred to execute this script
+    :return:
+        tupple - resource_physical_ids, filed_tests_map
+
+            resource_physical_ids - set of the physical Ids that belongs to resourses that was deployed part of the stack deployment
+            filed_tests_map {
+                FailedTest : [FailedEntity]
+            }
+    """
     aws_session = boto3.session.Session(profile_name=aws_profile,
                                         region_name=region) if aws_profile else boto3.session.Session(
         region_name=region)
 
-    # sanity test - verify that we have credentials for the relevant AWS account numnber
-    sts = aws_session.client('sts')
-    account_id = sts.get_caller_identity()["Account"]
-    if (str(aws_cloud_account) != str(account_id)):
-        print(aws_cloud_account)
-        print(account_id)
-        print(
-            'Error - the provided awsAccNumber ({}) is not tied to the AWS credentials of this script ({}) consider '
-            'providing a different "profile" argument'.format(
-                aws_cloud_account, account_id))
-        exit(2)
-
-    cfn = aws_session.client('cloudformation')
-    response_pages = list()
-    api_response = cfn.list_stack_resources(
-        StackName=stack_name,
-    )
-
-    # print(api_response)
-    response_pages.append(api_response)
-    while 'NextToken' in api_response:
+    resource_physical_ids = None
+    # In case of assessment execution for a specific AWS stack
+    if stack_name is not None:
+        # Get the AWS stack resources
+        cfn = aws_session.client('cloudformation')
+        response_pages = list()
         api_response = cfn.list_stack_resources(
-            StackName=stack_name,
-            NextToken=api_response['NextToken']
+            StackName=stack_name
         )
+
+        logging.debug(api_response)
+
         response_pages.append(api_response)
+        while 'NextToken' in api_response:
+            api_response = cfn.list_stack_resources(
+                StackName=stack_name,
+                NextToken=api_response['NextToken']
+            )
+            response_pages.append(api_response)
 
-    # get dome9 types from mapping file
-    MAPPINGS_PATH = "%s/cfn_mappings.csv" % (os.path.dirname(os.path.realpath(__file__)))
-    cfn_mappings = dict()
-    with open(MAPPINGS_PATH, "r") as f:
-        reader = csv.DictReader(f)
-        for item in reader:
-            if item['Dome9']:
-                cfn_mappings[item['CFN']] = item['Dome9'].split(',')
+        # get dome9 types from mapping file
+        MAPPINGS_PATH = "%s/cfn_mappings.csv" % (os.path.dirname(os.path.realpath(__file__)))
+        cfn_mappings = dict()
+        with open(MAPPINGS_PATH, "r") as f:
+            reader = csv.DictReader(f)
+            for item in reader:
+                if item['Dome9']:
+                    cfn_mappings[item['CFN']] = item['Dome9'].split(',')
 
-    # Prepare the set of physical resource ids for the relevant d9 supported resources from the stack
-    resource_physical_ids = set()  # set will make it unique
-    for response in response_pages:
-        for resource in response['StackResourceSummaries']:
-            resource_type = resource['ResourceType']
-            resource_physical_id = resource["PhysicalResourceId"]
-            if resource_type in cfn_mappings:
-                resource_physical_ids.add(resource_physical_id)
+        # Prepare the set of physical resource ids for the relevant d9 supported resources from the stack
+        resource_physical_ids = set()  # set will make it unique
+        for response in response_pages:
+            for resource in response['StackResourceSummaries']:
+                resource_type = resource['ResourceType']
+                resource_physical_id = resource["PhysicalResourceId"]
+                if resource_type in cfn_mappings:
+                    resource_physical_ids.add(resource_physical_id)
 
     # Prepare full entity representation (id,arn,name) of each failed entity
     filed_tests_map = dict()
@@ -286,33 +323,133 @@ def prepare_results_to_analyze(aws_cloud_account, region, stack_name, aws_profil
     return resource_physical_ids, filed_tests_map
 
 
+def __log_setup(log_file_path=None, log_level='INFO'):
+    """
+    setup the logging level
+    :param log_file_psth: the destination log file path
+    :param log_level: the level of the log
+    :return:
+    """
+
+    if log_file_path:
+        logging.basicConfig(filename=log_file_path,
+                            format='[%(asctime)s -%(levelname)s] (%(processName)-10s) %(message)s')
+    else:
+        logging.basicConfig(format='[%(asctime)s -%(levelname)s] (%(processName)-10s) %(message)s')
+    logging.getLogger().setLevel(log_level)
+
+
+def print_help():
+    title = '''
+        
+
+  ______  __        ______    __    __   _______   _______  __    __       ___      .______     _______           _______   ______   .___  ___.  _______   ___              
+ /      ||  |      /  __  \  |  |  |  | |       \ /  _____||  |  |  |     /   \     |   _  \   |       \         |       \ /  __  \  |   \/   | |   ____| / _ \             
+|  ,----'|  |     |  |  |  | |  |  |  | |  .--.  |  |  __  |  |  |  |    /  ^  \    |  |_)  |  |  .--.  |        |  .--.  |  |  |  | |  \  /  | |  |__   | (_) |      
+|  |     |  |     |  |  |  | |  |  |  | |  |  |  |  | |_ | |  |  |  |   /  /_\  \   |      /   |  |  |  |        |  |  |  |  |  |  | |  |\/|  | |   __|   \__, |    
+|  `----.|  `----.|  `--'  | |  `--'  | |  '--'  |  |__| | |  `--'  |  /  _____  \  |  |\  \-. |  '--'  |        |  '--'  |  `--'  | |  |  |  | |  |____    / /             
+ \______||_______| \______/   \______/  |_______/ \______|  \______/  /__/     \__\ | _| `.__| |_______/         |_______/ \______/  |__|  |__| |_______|  /_/              
+                                                                                                                                                                         
+                                                ____ _  _ _  _    ____ ____ ____ ____ ____ ____ _  _ ____ _  _ ___
+                                                |__/ |  | |\ |    |__| [__  [__  |___ [__  [__  |\/| |___ |\ |  | 
+                                                |  \ |__| | \|    |  | ___] ___] |___ ___] ___] |  | |___ | \|  |          
+                                                                                                                                                                                                            
+'''
+
+    text = (
+        f'Script Version - {APIVersion} \n\n'
+        'This is the Dome9 JIT assessment execution script \n'
+        'It will trigger specific Dome9 bundle execution over specific cloud account\n'
+        'The script have two mode of operations:\n'
+        '\t\t1. Execute it over specific cloud account  \n'
+        '\t\t2. Execute it for a specific AWS Stack\n\n'
+    )
+
+    print(title)
+    print(
+        '\n-------------------------------------------------------------------------------------------------------------------------------------------------------')
+    print(text)
+
+
 def main():
-    parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--d9keyId', required=True, type=str)
-    parser.add_argument('--d9secret', required=True, type=str)
-    parser.add_argument('--awsCliProfile', required=False, type=str)
-    parser.add_argument('--awsAccountNumber', required=True, type=str)
-    parser.add_argument('--d9CloudAccount', required=False, type=str, default='')
-    parser.add_argument('--region', required=True, type=str)
-    parser.add_argument('--stackName', required=True, type=str)
-    parser.add_argument('--bundleId', required=True, type=int)
-    parser.add_argument('--maxTimeoutMinutes', required=False, type=int, default=10)
+    parser = argparse.ArgumentParser(description='', usage=print_help())
+    parser.add_argument('--d9keyId', required=True, type=str, help='the Dome9 KeyId for executing API calls')
+    parser.add_argument('--d9secret', required=True, type=str, help='the Dome9 secret  for executing API calls')
+    parser.add_argument('--awsCliProfile', required=False, type=str, default=None,
+                        help='[the AWS profile of the AWS account that the stack was deployed to]')
+    parser.add_argument('--awsAccountNumber', required=False, type=str, default=None,
+                        help='[the AWS account to run the assessment on]')
+    parser.add_argument('--cloudAccountD9Id', required=False, type=str, default=None,
+                        help='[the d9 id of the cloud account to run the assessment on (can be taken form the d9 console)]')
+    parser.add_argument('--region', required=False, type=str, default=None,
+                        help='[the region where the stack was deployed to]')
+    parser.add_argument('--stackName', required=False, type=str, default=None,
+                        help='[the AWS stack name to assess]')
+    parser.add_argument('--bundleId', required=True, type=int,
+                        help='the dome9 bundle id to execute')
+    parser.add_argument('--maxTimeoutMinutes', required=False, type=int, default=10,
+                        help='[the maximum time to wait to sync to finish]')
+    parser.add_argument('--minimumSeverityForFail', required=False, type=str, default=None,
+                        help='[the minimal severity level that will cause fail - Dome9 rule severity (High/Medium/Low)] ')
+    parser.add_argument('--log_file_path', required=False, type=str, default=None,
+                        help='[the destination path of for the log]')
+    parser.add_argument('--log_level', required=False, type=str, default='INFO',
+                        help='[the execution level of the log]')
+    parser.add_argument('--isStandAlone', required=False, type=bool, default=False,
+                        help='[Flag if this assessment execution is stand alone (not part of the all JIT '
+                             'assessment execution)]')
     args = parser.parse_args()
+    __log_setup(log_file_path=args.log_file_path, log_level=args.log_level)
     # Take start time
-    print("\n\n{}\nStarting...\n{}\n\nSetting now (UTC {}) ".format(80 * '*', 80 * '*', t0))
+    return run(args)
 
-    result = run_assessment(bundle_id=args.bundleId, aws_cloud_account=args.awsAccountNumber,
+
+def run(args):
+    logging.info(f"{SCRIPT} -  Starting - Setting now (UTC {t0})")
+    # If d9 representation id was not forward need
+    # Need to get the Dome9 cloud account representation
+    if args.cloudAccountD9Id is None:
+        # allow to specify specific profile, fallback to standard boto credentials lookup strategy
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html
+        aws_session = boto3.session.Session(profile_name=args.awsCliProfile,
+                                            region_name=args.region) if args.awsCliProfile else boto3.session.Session(
+            region_name=args.region)
+        sts = aws_session.client('sts')
+        account_id = sts.get_caller_identity()["Account"]
+        if (str(args.awsAccountNumber) != str(account_id)):
+            logging.error(
+                f'{SCRIPT} -  Error - the provided awsAccNumber ({args.awsAccountNumber}) is not tied to the AWS credentials of this script ({account_id}) consider providing a different "profile" argument')
+            exit(1)
+        logging.info(f'{SCRIPT} -  Resolving Dome9 account id from aws account number: {args.awsAccountNumber}')
+        r = requests.get('https://api.dome9.com/v2/cloudaccounts/{}'.format(args.awsAccountNumber),
+                         auth=(args.d9keyId, args.d9_secret))
+        r.raise_for_status()
+        d9_cloud_account = r.json()['id']
+        logging.debug(f'{SCRIPT} -  Found it. Dome9 cloud account Id={d9_cloud_account}')
+        cloudAccountD9Id = d9_cloud_account
+    else:
+        cloudAccountD9Id = args.cloudAccountD9Id
+    result = run_assessment(bundle_id=args.bundleId,
                             d9_secret=args.d9secret,
-                            d9_key=args.d9keyId, region=args.region, maxTimeoutMinutes=args.maxTimeoutMinutes)
-    res = analyze_assessment_result(assessment_result=result, aws_cloud_account=args.awsAccountNumber,
+                            d9_cloud_account=cloudAccountD9Id,
+                            d9_key=args.d9keyId,
+                            region=args.region,
+                            maxTimeoutMinutes=args.maxTimeoutMinutes)
+    if result is None:
+        exit(1)
+    res = analyze_assessment_result(assessment_result=result,
                                     region=args.region,
-                                    stack_name=args.stackName, aws_profile=args.awsCliProfile, maxTimeoutMinutes=args.maxTimeoutMinutes)
-
-    print("\n" + "*" * 50 + "\nRun and analyzing Assessment Script ran for {} seconds\n".format(
-        total_sec) + "*" * 50 + "\n")
-    return res
+                                    stack_name=args.stackName,
+                                    aws_profile=args.awsCliProfile,
+                                    maxTimeoutMinutes=args.maxTimeoutMinutes,
+                                    minimal_sevirity_to_fail=args.minimumSeverityForFail
+                                    )
+    logging.info(f"{SCRIPT} -  Run and analyzing Assessment Script ran for {total_sec} seconds")
+    if "isStandAlone" in args and args.isStandAlone:
+        return res
+    else:
+        exit(0)
 
 
 if __name__ == "__main__":
-
     main()
