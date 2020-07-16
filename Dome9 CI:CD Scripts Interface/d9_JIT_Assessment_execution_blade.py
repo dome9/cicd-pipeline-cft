@@ -2,8 +2,12 @@ import os
 path = os.getcwd()
 os.chdir(path)
 
+import sys
 import logging
 import argparse
+import json
+
+
 
 import d9_sync_and_wait as d9_sync_and_wait
 import d9_run_assessment as d9_run_assessment
@@ -11,20 +15,49 @@ import d9_run_assessment as d9_run_assessment
 
 APIVersion = 2.0
 
-def __log_setup(log_file_path=None, log_level='INFO'):
+class InfoFilter(logging.Filter):
+    def filter(self, rec):
+        return rec.levelno in (logging.DEBUG, logging.ERROR, logging.WARNING)
+
+class ComplexEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if hasattr(obj,'reprJSON'):
+            return obj.reprJSON()
+        else:
+            return json.JSONEncoder.default(self, obj)
+
+def __log_setup( log_level='INFO'):
     """
-    setup the logging level
-    :param log_file_psth: the destination log file path
+    setup the logger
+    INFO - will go to stdout
+    WARNING,ERROR AND DEBUG - will go to stderr
     :param log_level: the level of the log
     :return:
     """
 
-    if log_file_path:
-        logging.basicConfig(filename=log_file_path,
-                            format='[%(asctime)s -%(levelname)s] (%(processName)-10s) %(message)s')
-    else:
-        logging.basicConfig(format='[%(asctime)s -%(levelname)s] (%(processName)-10s) %(message)s')
-    logging.getLogger().setLevel(log_level)
+    h1 = logging.StreamHandler(sys.stdout)
+    formater = logging.Formatter('[%(asctime)s -%(levelname)s] (%(processName)-10s) %(message)s')
+    h2 = logging.StreamHandler(sys.stderr)
+    h3 = logging.StreamHandler(sys.stderr)
+    h4 = logging.StreamHandler(sys.stderr)
+    h1.setLevel(logging.INFO)
+    h1.setFormatter(formater)
+    h2.setLevel(logging.DEBUG)
+    h2.addFilter(InfoFilter())
+    h2.setFormatter(formater)
+    h3.setLevel(logging.ERROR)
+    h3.setFormatter(formater)
+    h4.setLevel(logging.WARNING)
+    h4.setFormatter(formater)
+
+
+
+    logger = logging.getLogger()
+    logger.addHandler(h1)
+    logger.addHandler(h2)
+    logger.addHandler(h3)
+    logger.addHandler(h4)
+    logger.setLevel(log_level)
 
 
 def print_help():
@@ -38,17 +71,17 @@ def print_help():
 |  `----.|  `----.|  `--'  | |  `--'  | |  '--'  |  |__| | |  `--'  |  /  _____  \  |  |\  \-. |  '--'  |        |  '--'  |  `--'  | |  |  |  | |  |____    / /             
  \______||_______| \______/   \______/  |_______/ \______|  \______/  /__/     \__\ | _| `.__| |_______/         |_______/ \______/  |__|  |__| |_______|  /_/      
          
-                    ____ _  _ _  _    ____ ____ ____ ____ ____ ____ _  _ ____ _  _ ___    ____ _  _ _    _       ___  _ ___  ____ _    _ _  _ ____
-                    |__/ |  | |\ |    |__| [__  [__  |___ [__  [__  |\/| |___ |\ |  |     |___ |  | |    |       |__] | |__] |___ |    | |\ | |___
-                    |  \ |__| | \|    |  | ___] ___] |___ ___] ___] |  | |___ | \|  |     |    |__| |___ |___    |    | |    |___ |___ | | \| |___
-                                                                                                                                      
 
+             _   _  ___     __  ____ ____  ___ ____ ____ _  _  ___ _  _ ___     ___ _  _  ___  ___ _  _ ___ _ ____ _  _    ___  _     __  ___   ___
+             |   |   |     |__| [__  [__  |___ [__  [__  |\/| |___ |\ |  |     |___  \/  |___ |    |  |  |  | |  | |\ |    |__] |    |__| |  \ |___
+           |_|   |   |     |  | ___] ___] |___ ___] ___] |  | |___ | \|  |     |___ _/\_ |___ |___ |__|  |  | |__| | \|    |__] |___ |  | |__/ |___
+                                                                                                                            
 '''
 
     text = (
         f'Script Version - {APIVersion} \n\n'
         'This is the Dome9 JIT full assessment execution script \n'
-        'The script flow - '
+        'The script flow - \n'
         '\t 1. Sync and wait - Fetching all the dome9 entities into dome9 env - Using d9_sync_and_wait.py\n'
         '\t 2. Execute the specific bundle - Using d9_run_assessment.py\n'
         'The script have two mode of operations:\n'
@@ -62,10 +95,38 @@ def print_help():
     print(text)
 
 
+def run(args):
+    sl_result_file = os.environ["SHIFTLEFT_RESULT_FILE"]
+    d9_sync_and_wait.run(args=args)
+    tests_list = d9_run_assessment.run(args=args)
+
+    # In case that minimal severity level was reached
+    execution_status = 0
+    if args.minimumSeverityForFail:
+        if any(test.rule_severity == args.minimumSeverityForFail for test in tests_list):
+            logging.info("Assessment was failed!!")
+            logging.info(f"Minimal Severity level - {args.minimumSeverityForFail} was reached")
+            execution_status = 2
+
+    # Print result into the result file
+    result_as_json = json.dumps([obj.reprJSON() for obj in tests_list])
+    with open(sl_result_file, 'w') as file:
+        file.write(result_as_json)
+
+    exit(execution_status)
+
+
+
+
+
 def main():
+    d9_key_id = os.environ["CHKP_CLOUDGARD_ID"]
+    d9_secret = os.environ["CHKP_CLOUDGUARD_SECRET"]
+    sl_debug = os.environ["SHIFTLEFT_DEBUG"]
+
     parser = argparse.ArgumentParser(description='', usage=print_help())
-    parser.add_argument('--d9keyId', required=True, type=str, help='the Dome9 KeyId for executing API calls')
-    parser.add_argument('--d9secret', required=True, type=str, help='the Dome9 secret  for executing API calls')
+    parser.add_argument('--d9keyId', required=False, default=d9_key_id, type=str, help='[the Dome9 KeyId for executing API calls - Can delivered by env vriable as well - CHKP_CLOUDGARD_ID]')
+    parser.add_argument('--d9secret', required=False, default=d9_secret, type=str, help='[the Dome9 secret  for executing API calls - Can delivered by env vriable as well - CHKP_CLOUDGUARD_SECRET]')
     parser.add_argument('--awsCliProfile', required=False, type=str, default=None,
                         help='[the AWS profile of the AWS account that the stack was deployed to]')
     parser.add_argument('--awsAccountNumber', required=False, type=str, default=None,
@@ -90,10 +151,17 @@ def main():
                         help='[the execution level of the log]')
 
     args = parser.parse_args()
-    __log_setup(log_file_path=args.log_file_path, log_level=args.log_level)
 
-    d9_sync_and_wait.run(args=args)
-    d9_run_assessment.run(args=args)
+
+
+    log_level = args.log_level
+    if sl_debug:
+        log_level = 'DEBUG'
+
+    __log_setup(log_level=log_level)
+
+    run(args=args)
+
 
 
 if __name__ == "__main__":

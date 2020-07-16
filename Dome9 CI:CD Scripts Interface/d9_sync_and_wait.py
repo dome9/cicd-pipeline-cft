@@ -81,7 +81,7 @@ def __d9_sync_and_wait(d9_api_key_Id, d9_api_secret, cloud_account_number, regio
                             f' was - {num_of_completed} and now it is - {curr_num_of_completed}')
             logging.warning(f'{SCRIPT} - Dump of the Dome9 fetch status difference: ')
             logging.warning(f'{SCRIPT} - Fetch start time - {t0_sync_wait}')
-            logging.warning('{SCRIPT} - Previous Status: ')
+            logging.warning(f'{SCRIPT} - Previous Status: ')
             logging.warning(f'{SCRIPT} - {json.dumps(api_status, indent=4, sort_keys=True)}')
             logging.warning(f'{SCRIPT} - Current Status - ')
             logging.warning(f'{SCRIPT} - {json.dumps(curr_api_status, indent=4, sort_keys=True)}')
@@ -284,7 +284,7 @@ def __get_stack_types_from_aws(aws_acc_number, region, stack_name, aws_profile):
     response_pages = list()
     api_response = cfn.list_stack_resources(StackName=stack_name)
 
-    logging.debug(api_response)
+    logging.debug(f"{api_response}")
     response_pages.append(api_response)
     while 'NextToken' in api_response:
         api_response = cfn.list_stack_resources(
@@ -378,7 +378,7 @@ class StatusResult:
 
 def run(args):
     global relevant_dome9_types
-    # TODO - EXTEND THE DEAFULT LIST B YTHE DOME9 UNSUPPORTED SYNC AND WAIT ENTITIES
+    # TODO - EXTEND THE DEFAULT LIST BY THE DOME9 UNSUPPORTED SYNC AND WAIT ENTITIES
     excluded_types = args.excludedTypes.split(',') if args.excludedTypes else ['LogGroups', 'IamCredentialReport','ConfigurationRecorder','DirectConnectVirtualInterface','EbsSnapshot', 'DirectConnectConnection', 'IamAccountSummary']
     # In case of running assessment refer to a specific stack
     relevant_dome9_types = None

@@ -16,13 +16,16 @@ APIVersion = 2.0
 SCRIPT='RunAssessment'
 
 
-class FailedEntity:
+class FailedEntity(object):
     def __init__(self):
         self.entity_id = None
         self.arn = None
         self.name = None
         self.tags = None
         self.type = None
+
+    def reprJSON(self):
+        return dict(entity_id=self.entity_id,arn=self.arn,name=self.name,tags=self.tags,type=self.type)
 
     def set_entity_id(self, entity_id):
         self.entity_id = entity_id
@@ -49,11 +52,15 @@ class FailedEntity:
         return rep
 
 
-class FailedTest:
+class FailedTest(object):
     def __init__(self):
         self.rule_name = None
         self.rule_desc = None
         self.rule_severity = None
+        self.list_of_failed_entity = []
+
+    def reprJSON(self):
+        return dict(rule_name=self.rule_name,rule_desc=self.rule_desc,rule_severity=self.rule_severity,list_of_failed_entity=[obj.reprJSON() for obj in self.list_of_failed_entity])
 
     def set_rule_name(self, rule_name):
         self.rule_name = rule_name
@@ -64,10 +71,19 @@ class FailedTest:
     def set_rule_severity(self, rule_severity):
         self.rule_severity = rule_severity
 
+    def set_failed_entity(self, failed_entity):
+        self.list_of_failed_entity.append(failed_entity)
+
+    def set_list_of_failed_entity(self, list_of_failed_entites):
+        self.list_of_failed_entity = list_of_failed_entites
+
     def __str__(self):
         rep = "\n\tTest:\n"
         rep += "\t\trule name: " + self.rule_name + "\n"
         rep += "\t\tseverity: " + self.rule_severity + "\n"
+        for entity in self.list_of_failed_entity:
+            rep += "\t\t" + entity+"\n"
+
         # rep += "\t\tdescription: " + self.rule_desc + "\n"
 
         return rep
@@ -131,7 +147,7 @@ def run_assessment(bundle_id, d9_secret, d9_key, region, d9_cloud_account=None, 
 
 # Analyze the assessment execution result and return the assets id and types for all the assets the fail in
 # each rule execution
-def __print_map(failed_Test_relevant_entites_map):
+def print_map(failed_Test_relevant_entites_map):
     str = ""
     for test in failed_Test_relevant_entites_map:
         str += test.__str__() + "\n\t\tFailed Entities:\n"
@@ -154,8 +170,7 @@ def analyze_assessment_result(assessment_result,
                               region=None,
                               stack_name=None,
                               aws_profile=None,
-                              maxTimeoutMinutes=10,
-                              minimal_sevirity_to_fail=None):
+                              maxTimeoutMinutes=10):
     global t0, total_sec
     t0_run_assessment_analyze = datetime.datetime.utcnow()
 
@@ -163,24 +178,24 @@ def analyze_assessment_result(assessment_result,
     # The ids are from the cfn describe and based on the PhysicalResourceId field list_of_failed_entities - It's a
     # list of FailedEntity that will contain for each failed entities in the assessment result it's id,arn,name,tags
     logging.info(f"{SCRIPT} -  Starting To Analyze Assessment Result")
-    (resource_physical_ids, failed_tests_map) = __prepare_results_to_analyze(region=region,
+    (resource_physical_ids, failed_tests) = __prepare_results_to_analyze(region=region,
                                                                             stack_name=stack_name,
-
                                                                             aws_profile=aws_profile,
                                                                             assessment_result=assessment_result)
 
     logging.info(f'{SCRIPT} -  Bundle - {assessment_result["request"]["name"]}')
-    logging.info(f"{SCRIPT} -  Number of total failed tests: {len(failed_tests_map)}")
+    logging.info(f"{SCRIPT} -  Number of total failed tests: {len(failed_tests)}")
     # add statistics about the assessment result and print the stuck name
-    failed_test_relevant_entities_map = dict()
+    final_failed_tests = list()
 
     # get only the failed tests that contain entities from the deployed stack
     if stack_name is not None:
+
         logging.info(f"{SCRIPT} -  Failed Tests that are relevant to the Stack - {stack_name}:")
-        for failed_test in failed_tests_map:
+        for failed_test in failed_tests:
             fallback = True
             relevant_failed_entities = list()
-            for failed_entity in failed_tests_map[failed_test]:
+            for failed_entity in failed_test.list_of_failed_entity:
                 # 1st check with the tags "key": "aws:cloudformation:stack-name" equals to our stack_name
                 if failed_entity.tags:
                     for tag in failed_entity.tags:
@@ -204,19 +219,10 @@ def analyze_assessment_result(assessment_result,
                         fallback = False
 
             if len(relevant_failed_entities) > 0:
-                failed_test_relevant_entities_map[failed_test] = relevant_failed_entities
+                failed_test.set_list_of_failed_entity(relevant_failed_entities)
+                final_failed_tests.append(failed_test)
     else:
-        failed_test_relevant_entities_map = failed_tests_map
-
-    # In case that minimal severity level was reached
-    if minimal_sevirity_to_fail:
-        if any(test.rule_severity == minimal_sevirity_to_fail for test in failed_tests_map):
-            logging.info("Assessment was failed!!")
-            logging.info(f"Minimal Severity level{minimal_sevirity_to_fail} reached")
-            logging.error(__print_map(failed_test_relevant_entities_map))
-            exit(2)
-
-    logging.info(__print_map(failed_test_relevant_entities_map))
+        final_failed_tests = failed_tests
 
     # check that max timeout was not reached
     if __checkThatMaxTimeWasNotReached(t0, maxTimeoutMinutes):
@@ -226,13 +232,12 @@ def analyze_assessment_result(assessment_result,
     total_sec = total_sec + (tn - t0_run_assessment_analyze).total_seconds()
     logging.info(f"{SCRIPT} -  Assessment Analyzing Was Done in {(tn - t0_run_assessment_analyze).total_seconds()} seconds")
 
-    return failed_test_relevant_entities_map
+    return final_failed_tests
 
 
 def __prepare_results_to_analyze(assessment_result, region=None, stack_name=None, aws_profile=None):
     """
     This method prepare the data model of the d9 assessment execution
-
     :param assessment_result: The result of the RunAssessment API
     :param region: the aws region where the Stack was deployed in case of assessment execution over specific Stack
     :param stack_name: the AWS stack name in case of assessment execution over specific Stack
@@ -241,9 +246,7 @@ def __prepare_results_to_analyze(assessment_result, region=None, stack_name=None
         tupple - resource_physical_ids, filed_tests_map
 
             resource_physical_ids - set of the physical Ids that belongs to resourses that was deployed part of the stack deployment
-            filed_tests_map {
-                FailedTest : [FailedEntity]
-            }
+            filed_tests - [FailedTest]
     """
     aws_session = boto3.session.Session(profile_name=aws_profile,
                                         region_name=region) if aws_profile else boto3.session.Session(
@@ -259,7 +262,7 @@ def __prepare_results_to_analyze(assessment_result, region=None, stack_name=None
             StackName=stack_name
         )
 
-        logging.debug(api_response)
+        logging.debug(f"{api_response}")
 
         response_pages.append(api_response)
         while 'NextToken' in api_response:
@@ -288,17 +291,13 @@ def __prepare_results_to_analyze(assessment_result, region=None, stack_name=None
                     resource_physical_ids.add(resource_physical_id)
 
     # Prepare full entity representation (id,arn,name) of each failed entity
-    filed_tests_map = dict()
-
     # for all the failed tests
+    failed_tests = list()
     for test in [tst for tst in assessment_result["tests"] if not tst["testPassed"]]:
         failed_test = FailedTest()
-        list_of_failed_entities = list()
         failed_test.set_rule_name(test["rule"]["name"])
         failed_test.set_rule_severity(test["rule"]["severity"])
         failed_test.set_rule_desc(test["rule"]["description"])
-
-        filed_tests_map[failed_test] = None
 
         # for each failed asset
         for entity in [ast for ast in test["entityResults"] if ast["isRelevant"] and not ast["isValid"]]:
@@ -317,10 +316,11 @@ def __prepare_results_to_analyze(assessment_result, region=None, stack_name=None
                     failed_entity.set_name(full_d9_entity["name"])
                 if 'tags' in full_d9_entity:
                     failed_entity.set_tags(full_d9_entity["tags"])
-                list_of_failed_entities.append(failed_entity)
-        filed_tests_map[failed_test] = list_of_failed_entities
+                failed_test.set_failed_entity(failed_entity=failed_entity)
+        failed_tests.append(failed_test)
 
-    return resource_physical_ids, filed_tests_map
+
+    return resource_physical_ids, failed_tests
 
 
 def __log_setup(log_file_path=None, log_level='INFO'):
@@ -389,15 +389,11 @@ def main():
                         help='the dome9 bundle id to execute')
     parser.add_argument('--maxTimeoutMinutes', required=False, type=int, default=10,
                         help='[the maximum time to wait to sync to finish]')
-    parser.add_argument('--minimumSeverityForFail', required=False, type=str, default=None,
-                        help='[the minimal severity level that will cause fail - Dome9 rule severity (High/Medium/Low)] ')
     parser.add_argument('--log_file_path', required=False, type=str, default=None,
                         help='[the destination path of for the log]')
     parser.add_argument('--log_level', required=False, type=str, default='INFO',
                         help='[the execution level of the log]')
-    parser.add_argument('--isStandAlone', required=False, type=bool, default=False,
-                        help='[Flag if this assessment execution is stand alone (not part of the all JIT '
-                             'assessment execution)]')
+
     args = parser.parse_args()
     __log_setup(log_file_path=args.log_file_path, log_level=args.log_level)
     # Take start time
@@ -437,18 +433,21 @@ def run(args):
                             maxTimeoutMinutes=args.maxTimeoutMinutes)
     if result is None:
         exit(1)
-    res = analyze_assessment_result(assessment_result=result,
+    result = analyze_assessment_result(assessment_result=result,
                                     region=args.region,
                                     stack_name=args.stackName,
                                     aws_profile=args.awsCliProfile,
-                                    maxTimeoutMinutes=args.maxTimeoutMinutes,
-                                    minimal_sevirity_to_fail=args.minimumSeverityForFail
+                                    maxTimeoutMinutes=args.maxTimeoutMinutes
                                     )
+
+
+
+    global total_sec
+    total_sec = (datetime.datetime.utcnow() - t0).total_seconds()
     logging.info(f"{SCRIPT} -  Run and analyzing Assessment Script ran for {total_sec} seconds")
-    if "isStandAlone" in args and args.isStandAlone:
-        return res
-    else:
-        exit(0)
+
+    return result
+
 
 
 if __name__ == "__main__":
