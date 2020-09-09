@@ -9,6 +9,7 @@ import argparse
 import datetime
 import os
 import logging
+from sys import exit
 
 t0 = datetime.datetime.utcnow()
 total_sec = 0
@@ -249,8 +250,7 @@ def __prepare_results_to_analyze(assessment_result, region=None, stack_name=None
             filed_tests - [FailedTest]
     """
     aws_session = boto3.session.Session(profile_name=aws_profile,
-                                        region_name=region) if aws_profile else boto3.session.Session(
-        region_name=region)
+                                        region_name=region) if aws_profile else boto3.session.Session(region_name=region)
 
     resource_physical_ids = None
     # In case of assessment execution for a specific AWS stack

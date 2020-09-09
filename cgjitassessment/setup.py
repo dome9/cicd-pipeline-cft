@@ -1,9 +1,9 @@
 from setuptools import find_packages, setup
 
 
-setup(name='d9jitassessment',
+setup(name='cgjitassessment',
       version='0.1',
-      description='Checkpoint CloudGuard Dome9 Just In Time Assessment Execution',
+      description='Checkpoint CloudGuard Just In Time Assessment Execution',
       url='',
       author='Idan Perez',
       author_email='',

@@ -2,7 +2,13 @@ import os
 path = os.getcwd()
 os.chdir(path)
 
+try:
+    import configparser
+except ImportError:
+    import ConfigParser
+
 import sys
+from sys import exit
 import logging
 import argparse
 import json
@@ -35,28 +41,17 @@ def __log_setup( log_level='INFO'):
     :return:
     """
 
-    h1 = logging.StreamHandler(sys.stdout)
+    if log_level == 'INFO':
+        h = logging.StreamHandler(sys.stdout)
+    else:
+        h = logging.StreamHandler(sys.stderr)
+
     formater = logging.Formatter('[%(asctime)s -%(levelname)s] (%(processName)-10s) %(message)s')
-    h2 = logging.StreamHandler(sys.stderr)
-    h3 = logging.StreamHandler(sys.stderr)
-    h4 = logging.StreamHandler(sys.stderr)
-    h1.setLevel(logging.INFO)
-    h1.setFormatter(formater)
-    h2.setLevel(logging.DEBUG)
-    h2.addFilter(InfoFilter())
-    h2.setFormatter(formater)
-    h3.setLevel(logging.ERROR)
-    h3.setFormatter(formater)
-    h4.setLevel(logging.WARNING)
-    h4.setFormatter(formater)
 
-
-
+    h.setFormatter(formater)
+    h.setLevel(log_level)
     logger = logging.getLogger()
-    logger.addHandler(h1)
-    logger.addHandler(h2)
-    logger.addHandler(h3)
-    logger.addHandler(h4)
+    logger.addHandler(h)
     logger.setLevel(log_level)
 
 
@@ -64,12 +59,12 @@ def print_help():
     title = '''
 
 
-  ______  __        ______    __    __   _______   _______  __    __       ___      .______     _______           _______   ______   .___  ___.  _______   ___              
- /      ||  |      /  __  \  |  |  |  | |       \ /  _____||  |  |  |     /   \     |   _  \   |       \         |       \ /  __  \  |   \/   | |   ____| / _ \             
-|  ,----'|  |     |  |  |  | |  |  |  | |  .--.  |  |  __  |  |  |  |    /  ^  \    |  |_)  |  |  .--.  |        |  .--.  |  |  |  | |  \  /  | |  |__   | (_) |      
-|  |     |  |     |  |  |  | |  |  |  | |  |  |  |  | |_ | |  |  |  |   /  /_\  \   |      /   |  |  |  |        |  |  |  |  |  |  | |  |\/|  | |   __|   \__, |    
-|  `----.|  `----.|  `--'  | |  `--'  | |  '--'  |  |__| | |  `--'  |  /  _____  \  |  |\  \-. |  '--'  |        |  '--'  |  `--'  | |  |  |  | |  |____    / /             
- \______||_______| \______/   \______/  |_______/ \______|  \______/  /__/     \__\ | _| `.__| |_______/         |_______/ \______/  |__|  |__| |_______|  /_/      
+                          ______  __        ______    __    __   _______   _______  __    __       ___      .______     _______               
+                         /      ||  |      /  __  \  |  |  |  | |       \ /  _____||  |  |  |     /   \     |   _  \   |       \              
+                        |  ,----'|  |     |  |  |  | |  |  |  | |  .--.  |  |  __  |  |  |  |    /  ^  \    |  |_)  |  |  .--.  |       
+                        |  |     |  |     |  |  |  | |  |  |  | |  |  |  |  | |_ | |  |  |  |   /  /_\  \   |      /   |  |  |  |     
+                        |  `----.|  `----.|  `--'  | |  `--'  | |  '--'  |  |__| | |  `--'  |  /  _____  \  |  |\  \-. |  '--'  |             
+                         \______||_______| \______/   \______/  |_______/ \______|  \______/  /__/     \__\ | _| `.__| |_______/      
          
 
              _   _  ___     __  ____ ____  ___ ____ ____ _  _  ___ _  _ ___     ___ _  _  ___  ___ _  _ ___ _ ____ _  _    ___  _     __  ___   ___
@@ -116,9 +111,9 @@ def run(args):
     exit(execution_status)
 
 def main():
+
     d9_key_id = os.environ["CHKP_CLOUDGARD_ID"]
     d9_secret = os.environ["CHKP_CLOUDGUARD_SECRET"]
-    sl_debug = os.environ["SHIFTLEFT_DEBUG"]
 
     parser = argparse.ArgumentParser(description='', usage=print_help())
     parser.add_argument('--d9keyId', required=False, default=d9_key_id, type=str, help='[the Dome9 KeyId for executing API calls - Can delivered by env vriable as well - CHKP_CLOUDGARD_ID]')
@@ -147,6 +142,9 @@ def main():
                         help='[the execution level of the log]')
 
     args = parser.parse_args()
+
+
+    sl_debug = os.environ["SHIFTLEFT_DEBUG"]
 
 
 

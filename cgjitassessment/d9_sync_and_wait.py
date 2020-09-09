@@ -11,6 +11,7 @@ import dateutil.parser
 import argparse
 import os
 import logging
+from sys import exit
 
 
 APIVersion=2.0
@@ -31,7 +32,7 @@ def __d9_sync_and_wait(d9_api_key_Id, d9_api_secret, cloud_account_number, regio
 
     # Take start time
     t0_sync_wait = datetime.datetime.utcnow()
-    logging.info(f"{SCRIPT} - Dome9 Sync And Wait  Interface Version - {APIVersion}")
+    logging.info(f"{SCRIPT} - CloudGuard Sync And Wait  Interface Version - {APIVersion}")
     logging.info(f"{SCRIPT} - Starting - Setting now (UTC {t0_sync_wait}) as base time")
     logging.info(f"{SCRIPT} - Max time for this execution is - {max_timeout_minutes} minutes")
 
@@ -379,7 +380,7 @@ class StatusResult:
 def run(args):
     global relevant_dome9_types
     # TODO - EXTEND THE DEFAULT LIST BY THE DOME9 UNSUPPORTED SYNC AND WAIT ENTITIES
-    excluded_types = args.excludedTypes.split(',') if args.excludedTypes else ['LogGroups', 'IamCredentialReport','ConfigurationRecorder','DirectConnectVirtualInterface','EbsSnapshot', 'DirectConnectConnection', 'IamAccountSummary']
+    excluded_types = args.excludedTypes.split(',') if args.excludedTypes else ['LogGroups', 'IamCredentialReport','ConfigurationRecorder','DirectConnectVirtualInterface','EbsSnapshot', 'DirectConnectConnection', 'IamAccountSummary','GlueSecurityConfiguration']
     # In case of running assessment refer to a specific stack
     relevant_dome9_types = None
     if 'awsCliProfile' in args:
