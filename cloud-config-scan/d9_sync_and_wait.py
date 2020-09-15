@@ -32,15 +32,15 @@ def __d9_sync_and_wait(d9_api_key_Id, d9_api_secret, cloud_account_number, regio
 
     # Take start time
     t0_sync_wait = datetime.datetime.utcnow()
-    logging.info(f"{SCRIPT} - CloudGuard Sync And Wait  Interface Version - {APIVersion}")
-    logging.info(f"{SCRIPT} - Starting - Setting now (UTC {t0_sync_wait}) as base time")
-    logging.info(f"{SCRIPT} - Max time for this execution is - {max_timeout_minutes} minutes")
+    logging.info("{} - CloudGuard Sync And Wait  Interface Version - {}".format(SCRIPT,APIVersion))
+    logging.info("{} - Starting - Setting now (UTC {}) as base time".format(SCRIPT, t0_sync_wait))
+    logging.info("{} - Max time for this execution is - {} minutes".format(SCRIPT,max_timeout_minutes ))
 
 
     if relevant_dome9_types:
-        print_list(relevant_dome9_types, "Actual Dome9 types to wait for")
+        print_list(relevant_dome9_types, "Actual CloudGuard types to wait for")
     if excluded_types:
-        print_list(excluded_types, "Excluded Dome9 types (will not wait for their fetch status)")
+        print_list(excluded_types, "Excluded CloudGuard types (will not wait for their fetch status)")
 
     result = None
     #if awsAccNumber:
@@ -78,26 +78,26 @@ def __d9_sync_and_wait(d9_api_key_Id, d9_api_secret, cloud_account_number, regio
 
         # Case that the number of completed fetch was reduced from some reason
         if curr_num_of_completed < num_of_completed:
-            logging.warning(f'{SCRIPT} - Stopping script, num of completed fetch was reduced,'
-                            f' was - {num_of_completed} and now it is - {curr_num_of_completed}')
-            logging.warning(f'{SCRIPT} - Dump of the Dome9 fetch status difference: ')
-            logging.warning(f'{SCRIPT} - Fetch start time - {t0_sync_wait}')
-            logging.warning(f'{SCRIPT} - Previous Status: ')
-            logging.warning(f'{SCRIPT} - {json.dumps(api_status, indent=4, sort_keys=True)}')
-            logging.warning(f'{SCRIPT} - Current Status - ')
-            logging.warning(f'{SCRIPT} - {json.dumps(curr_api_status, indent=4, sort_keys=True)}')
+            logging.warning('{} - Stopping script, num of completed fetch was reduced,\n was - {} and now it is - {}'
+                            .format(SCRIPT, num_of_completed, curr_num_of_completed))
+            logging.warning('{} - Dump of the CloudGuard fetch status difference: '.format(SCRIPT))
+            logging.warning('{} - Fetch start time - {}'.format(SCRIPT, t0_sync_wait))
+            logging.warning('{} - Previous Status: '.format(SCRIPT))
+            logging.warning('{} - {}'.format(SCRIPT, json.dumps(api_status, indent=4, sort_keys=True)))
+            logging.warning('{} - Current Status - '.format(SCRIPT))
+            logging.warning('{} - {}'.format(SCRIPT, json.dumps(curr_api_status, indent=4, sort_keys=True)))
             break
 
         num_of_completed = curr_num_of_completed
         api_status = curr_api_status
 
         #result.print_me()
-        logging.info(f'{SCRIPT} - Completed: ({len(result.completed)}), Pending: {len(result.pending)}')
+        logging.info('{} - Completed: ({}), Pending: {}'.format(SCRIPT, len(result.completed), len(result.pending)))
 
         if (result.isAllCompleted()):
             break
         else:
-            logging.info(f'{SCRIPT} - Not done yet. Will sleep a bit and poll the status again...')
+            logging.debug('{} - Not done yet. Will sleep a bit and poll the status again...'.format(SCRIPT))
             time.sleep(30)
 
 
@@ -115,9 +115,9 @@ def __check_that_max_time_was_not_reached (t0_sync_wait, max_timeout_minutes):
     """
     t_now = datetime.datetime.utcnow()
     elapsed = (t_now - t0_sync_wait).total_seconds()
-    logging.info(f'{SCRIPT} - Current d9_sync_and_wait run time is  - {elapsed} Seconds')
+    logging.debug('{} - Current d9_sync_and_wait run time is  - {} Seconds'.format(SCRIPT, elapsed))
     if elapsed > max_timeout_minutes * 60:
-        logging.error(f'{SCRIPT} - Stopping script, passed maxTimeoutMinutes ({max_timeout_minutes})')
+        logging.error('{} - Stopping script, passed maxTimeoutMinutes ({})'.format(SCRIPT, max_timeout_minutes))
         return True
     return False
 
@@ -168,18 +168,18 @@ def __perfrom_sync_now(cloud_account_number, d9_api_keyId, d9_api_secret):
     """
 
     # now perform sync now
-    logging.info(f'{SCRIPT} - Sending Dome9 SyncNow command...')
+    logging.debug('{} - Sending CloudGuard SyncNow command...'.format(SCRIPT))
     try:
         headers = {
             'Accept': 'application/json'
         }
-        r = requests.post(f'https://api.dome9.com/v2/cloudaccounts/{cloud_account_number}/SyncNow',params={},
+        r = requests.post('https://api.dome9.com/v2/cloudaccounts/{}/SyncNow'.format(cloud_account_number),params={},
                           headers=headers, auth=(d9_api_keyId, d9_api_secret))
         r.raise_for_status()  # throw an error if we did not get an OK result
         resp = r.json()
-        logging.debug(f'{SCRIPT} - {resp}')
+        logging.debug('{} - {}'.format(SCRIPT, resp))
     except Exception as e:
-        logging.error(f'{SCRIPT} - Dome9 sync API call failed: {e}')
+        logging.error('{} - CloudGuard sync API call failed: {}'.format(SCRIPT, e))
     return
 
 def __query_fetch_status(cloud_account_id, relevant_dome9_types, d9_api_keyId, d9_api_secret, excluded_types, region=None):
@@ -193,9 +193,9 @@ def __query_fetch_status(cloud_account_id, relevant_dome9_types, d9_api_keyId, d
     :param excluded_types: list of types that are no supported in dome9 sync now api
     :return:
     """
-    logging.info(f'{SCRIPT} - Querying entities fetch status from Dome9 API...')
+    logging.debug('{} - Querying entities fetch status from Dome9 API...'.format(SCRIPT))
     try:
-        r = requests.get(f'https://api.dome9.com/v2/EntityFetchStatus?cloudAccountId={cloud_account_id}',
+        r = requests.get('https://api.dome9.com/v2/EntityFetchStatus?cloudAccountId={}'.format(cloud_account_id),
                          auth=(d9_api_keyId, d9_api_secret))
         #r = requests.get('https://api.dome9.com/v2/EntityFetchStatus?externalAccountNumber={}'.format(awsAccNumber),
         #                 auth=(d9keyId, d9secret))
@@ -210,7 +210,7 @@ def __query_fetch_status(cloud_account_id, relevant_dome9_types, d9_api_keyId, d
 
         return relevant
     except Exception as e:
-        logging.error(f"{SCRIPT} - Query d9 fetch status failed: {e}")
+        logging.error("{} - Query d9 fetch status failed: {}".format(SCRIPT,e))
 
 def __get_relevant_types(aws_acc_number, region, stack_name, excluded_types, aws_profile, candidate_types_to_wait=None):
     """
@@ -277,15 +277,17 @@ def __get_stack_types_from_aws(aws_acc_number, region, stack_name, aws_profile):
     # sanity test - verify that we have credentials for the relevant AWS account numnber
     sts = aws_session.client('sts')
     account_id = sts.get_caller_identity()["Account"]
-    if (aws_acc_number != account_id):
-        logging.error(f'{SCRIPT} - Error - the provided awsAccNumber ({aws_acc_number}) is not tied to the AWS credentials of this script ({account_id}) consider providing a different "profile" argument')
+    if aws_acc_number != account_id:
+        logging.error('{} - Error - the provided awsAccNumber ({}) is not tied to the AWS credentials of this script '
+                      '({}) consider providing a different "profile" argument'.format(SCRIPT, aws_acc_number,
+                                                                                      account_id))
         exit(1)
 
     cfn = aws_session.client('cloudformation')
     response_pages = list()
     api_response = cfn.list_stack_resources(StackName=stack_name)
 
-    logging.debug(f"{api_response}")
+    logging.debug("{}".format(api_response))
     response_pages.append(api_response)
     while 'NextToken' in api_response:
         api_response = cfn.list_stack_resources(
@@ -306,7 +308,7 @@ def __get_stack_types_from_aws(aws_acc_number, region, stack_name, aws_profile):
 def print_list(list, name):
     if name:
         header = '{} ({}):'.format(name, len(list))
-        logging.info(f"{SCRIPT} - {header} {','.join(list)}")
+        logging.info("{} - {} {}".format(SCRIPT, header, ','.join(list)))
 
 
 
@@ -332,13 +334,13 @@ def print_help():
 
 
 
-    text = (f'Script Version - {APIVersion} \n\n'
+    text = ('Script Version - {} \n\n'
             'This is the sync and wait script \n'
             'It will trigger data fetch for specific cloud account secured by Dome9 system \n'
             'This is the first step before executing remote assessment  \n'
             'The script have two mode of operations:\n'
             '\t\t1. Execute it across the entire cloud account \n'
-            '\t\t2. Execute it for a specific AWS Stack\n\n'
+            '\t\t2. Execute it for a specific AWS Stack\n\n'.format(APIVersion)
           )
 
     print(title)
@@ -380,34 +382,36 @@ class StatusResult:
 def run(args):
     global relevant_dome9_types
     # TODO - EXTEND THE DEFAULT LIST BY THE DOME9 UNSUPPORTED SYNC AND WAIT ENTITIES
-    excluded_types = args.excludedTypes.split(',') if args.excludedTypes else ['LogGroups', 'IamCredentialReport','ConfigurationRecorder','DirectConnectVirtualInterface','EbsSnapshot', 'DirectConnectConnection', 'IamAccountSummary','GlueSecurityConfiguration']
+    excluded_types = args.excluded_types.split(',') if args.excluded_types else ['LogGroups', 'IamCredentialReport','ConfigurationRecorder','DirectConnectVirtualInterface','EbsSnapshot', 'DirectConnectConnection', 'IamAccountSummary','GlueSecurityConfiguration']
     # In case of running assessment refer to a specific stack
     relevant_dome9_types = None
-    if 'awsCliProfile' in args:
-        aws_profile = args.awsCliProfile
+    if 'aws_cli_profile' in args:
+        aws_profile = args.aws_cli_profile
     else:
         aws_profile = None
-    if args.stackName is not None:
+
+    if args.stack_name is not None:
         (d9_supported_cfn_types, d9_non_supported_cfn, relevant_dome9_types) = __get_relevant_types(
-            args.awsAccountNumber,
+            args.aws_account_number,
             args.region,
-            args.stackName,
+            args.stack_name,
             excluded_types,
             aws_profile
             )
     t1 = datetime.datetime.utcnow()
-    result = __d9_sync_and_wait(cloud_account_number=args.cloudAccountD9Id, region=args.region,
-                            excluded_types=excluded_types, max_timeout_minutes=args.maxTimeoutMinutes,
-                            d9_api_key_Id=args.d9keyId, d9_api_secret=args.d9secret)
+    result = __d9_sync_and_wait(cloud_account_number=args.cloud_guard_account_id, region=args.region,
+                            excluded_types=excluded_types, max_timeout_minutes=args.max_timeout_in_minutes,
+                            d9_api_key_Id=args.cp_cloud_guard_id, d9_api_secret=args.cp_cloud_guard_secret)
     t2 = datetime.datetime.utcnow()
     total_sec = (t2 - t1).total_seconds()
-    logging.info(f"{SCRIPT} -Run Sync And Wait Script ran for {total_sec} seconds")
+    logging.info("{} - Run Sync And Wait Script ran for {} seconds".format(SCRIPT, total_sec))
     if (result.isAllCompleted()):
-        logging.info(f"{SCRIPT} -All supported services were successfully updated (fetched)")
+        logging.info("{} - All supported services were successfully updated (fetched)".format(SCRIPT))
         return True
     else:
         logging.error(
-            f'{SCRIPT} -not all types were updated. Please consider to increase the script timeout or to exclude these types from being wait upon: {",".join(result.pending)}')
+            "{} -not all types were updated. Please consider to increase the script timeout or to exclude \n these "
+            "types from being wait upon: {}".format(SCRIPT, ",".join(set(result.pending))))
         exit(1)
 
 
