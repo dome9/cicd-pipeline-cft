@@ -1,8 +1,5 @@
 import os
 
-path = os.getcwd()
-os.chdir(path)
-
 try:
     import configparser
 except ImportError:
@@ -25,30 +22,24 @@ class InfoFilter(logging.Filter):
         return rec.levelno in (logging.DEBUG, logging.ERROR, logging.WARNING)
 
 
-class ComplexEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if hasattr(obj, 'reprJSON'):
-            return obj.reprJSON()
-        else:
-            return json.JSONEncoder.default(self, obj)
+class MyParser(argparse.ArgumentParser):
+    def error(self, message):
+        sys.stderr.write('error: %s\n' % message)
+        print_help()
+        sys.exit(2)
 
 
 def __log_setup(log_level='INFO'):
     """
     setup the logger
-    INFO - will go to stdout
-    WARNING,ERROR AND DEBUG - will go to stderr
+    All levels will forward to stderr
     :param log_level: the level of the log
     :return:
     """
 
-    if log_level == 'INFO':
-        h = logging.StreamHandler(sys.stdout)
-    else:
-        h = logging.StreamHandler(sys.stderr)
 
+    h = logging.StreamHandler(sys.stderr)
     formater = logging.Formatter('[%(asctime)s -%(levelname)s] (%(processName)-10s) %(message)s')
-
     h.setFormatter(formater)
     h.setLevel(log_level)
     logger = logging.getLogger()
@@ -133,10 +124,6 @@ def main():
     except  KeyError as e:
         d9_secret=''
 
-
-
-
-
     try:
         # take the shift left time out configuration and convert it to minutes and subtract one minute to enable
         # appropriate finish in case of fail
@@ -146,7 +133,7 @@ def main():
 
 
 
-    parser = argparse.ArgumentParser(description='', usage=print_help())
+    parser = MyParser(description='')
     parser.add_argument('--cp-cloud-guard-id', required=False, default=d9_key_id, type=str,
                         help='[the CloudGuard API Key - default is to use - CHKP_CLOUDGARD_ID env variable]')
     parser.add_argument('--cp-cloud-guard-secret', required=False, default=d9_secret, type=str,
@@ -173,6 +160,8 @@ def main():
                         help='[the destination path of for the log]')
 
     args = parser.parse_args()
+    if 'h' in args or 'help' in args:
+        print_help()
 
     sl_debug = os.environ["SHIFTLEFT_DEBUG"]
 
